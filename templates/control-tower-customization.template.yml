@@ -63,15 +63,15 @@ Parameters:
     Default: Lacework-Integration
   StackSetUrl:
     Type: String
-    Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-customization.template.yml
+    Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg-auto.yml
     Description: Lacework integration StackSet template URL
   CTS3BucketName:
     Type: String
-    Default: lacework-ct-cfn
+    Default: lacework-alliances
     Description: "S3 bucket for Lacework Control Tower Cloudformation assets. Use this if you want to customize your deployment. The bucket name can include numbers, lowercase letters, uppercase letters, and hyphens, but it cannot start or end with hyphens (-)."
   CTS3KeyPrefix:
     Type: String
-    Default: lacework-ct-cfn-dir/
+    Default: lacework-control-tower-cfn/
     Description: "S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment. The prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slashes (/). For more information, see https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html."
 Resources:
   LambdaZipsBucket:
@@ -187,7 +187,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/setup/LaceworkCTSetup.zip']]
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTSetup.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.7
       Timeout: 120
@@ -391,7 +391,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/stackset/LaceworkCTStackSet.zip']]
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTStackSet.zip']]
       Handler: stackset.lambda_handler
       Runtime: python3.7
       Timeout: 120
@@ -465,7 +465,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/account/LaceworkCTAccount.zip']]
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTAccount.zip']]
       Handler: account.lambda_handler
       Runtime: python3.7
       Timeout: 120
@@ -526,7 +526,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/auth/LaceworkCTAuth.zip']]
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTAuth.zip']]
       Handler: auth.lambda_handler
       Runtime: python3.7
       Timeout: 120
