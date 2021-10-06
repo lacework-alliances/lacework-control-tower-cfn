@@ -10,7 +10,7 @@ Metadata:
         Parameters:
           - LaceworkAccountName
           - LaceworkAccessKeyID
-          - LaceworkAccessKey
+          - LaceworkSecretKey
       - Label:
           default: "Deployment configuration"
         Parameters:
@@ -27,8 +27,8 @@ Metadata:
         default: Lacework account name
       LaceworkAccessKeyID:
         default: Lacework access key ID
-      LaceworkAccessKey:
-        default: Lacework access key
+      LaceworkSecretKey:
+        default: Lacework secret key
       LaunchAccountList:
         default: Existing AWS account ID list
       StackSetName:
@@ -42,29 +42,34 @@ Metadata:
 Parameters:
   LaceworkAccountName:
     Type: String
-    NoEcho: true
     Description: Lacework account name.
-    AllowedPattern: '^([A-Z0-9-]){20}$'
+    AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: Lacework account name contains alphanumeric characters only
+  LaceworkAccessKeyID:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '^[a-zA-Z0-9_]*$'
+    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
+    Description: Lacework API Secret Key.
+  LaceworkSecretKey:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '^[a-zA-Z0-9_]*$'
+    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
+    Description: Lacework API Secret Key.
   LaunchAccountList:
     Type: String
     Description: Comma separated string of existing (enrolled with Control Tower) AWS account IDs that you wish to monitor with Lacework. See https://docs.aws.amazon.com/general/latest/gr/acct-identifiers.html
     AllowedPattern: '^$|^(([0-9]){12},)*(([0-9]){12})$'
     ConstraintDescription: LaunchAccountList must be either empty or a comma separated string of AWS account IDs (12 digit number) with no spaces
-  LaceworkSecretKey:
-    Type: String
-    NoEcho: true
-    AllowedPattern: '^([A-Z0-9-_])$'
-    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
-    Description: Lacework API Secret Key.
   StackSetName:
     Type: String
-    Description: Lacework integration StackSet name
-    Default: Lacework-Integration
+    Description: Lacework Control Tower StackSet name
+    Default: Lacework-Control-Tower
   StackSetUrl:
     Type: String
     Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg-auto.yml
-    Description: Lacework integration StackSet template URL
+    Description: Lacework Control Tower StackSet template URL
   CTS3BucketName:
     Type: String
     Default: lacework-alliances
@@ -269,8 +274,8 @@ Resources:
         - ''
         - - '{"AccessKeyID":"'
           - Ref: LaceworkAccessKeyID
-          - '","AccessKey":"'
-          - Ref: LaceworkAccessKey
+          - '","SecretKey":"'
+          - Ref: LaceworkSecretKey
           - '","AccessToken": "0"'
           - ',"TokenExpiry": 0 }'
 
