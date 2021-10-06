@@ -68,7 +68,7 @@ Parameters:
     Default: Lacework-Control-Tower
   StackSetUrl:
     Type: String
-    Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg-auto.yml
+    Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg.template.yml
     Description: Lacework Control Tower StackSet template URL
   CTS3BucketName:
     Type: String
