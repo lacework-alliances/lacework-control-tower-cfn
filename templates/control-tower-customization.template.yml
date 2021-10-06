@@ -1,0 +1,569 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Control Tower customization that adds in Lacework integration to your landing zone.
+Metadata:
+  QuickStartDocumentation:
+    EntrypointName: "Parameters for deploying Lacework AWS Control Tower integration"
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      - Label:
+          default: "Lacework configuration"
+        Parameters:
+          - LaceworkAccountName
+          - LaceworkAccessKeyID
+          - LaceworkAccessKey
+      - Label:
+          default: "Deployment configuration"
+        Parameters:
+          - LaunchAccountList
+          - StackSetName
+          - StackSetUrl
+      - Label:
+          default: "Control Tower Cloudformation S3 assets location"
+        Parameters:
+          - CTS3BucketName
+          - CTS3KeyPrefix
+    ParameterLabels:
+      LaceworkAccountName:
+        default: Lacework account name
+      LaceworkAccessKeyID:
+        default: Lacework access key ID
+      LaceworkAccessKey:
+        default: Lacework access key
+      LaunchAccountList:
+        default: Existing AWS account ID list
+      StackSetName:
+        default: StackSet name.
+      StackSetUrl:
+        default: StackSet template URL.
+      CTS3BucketName:
+        default: Control Tower Cloudformation S3 assets bucket name.
+      CTS3KeyPrefix:
+        default: Control Tower Cloudformation S3 assets key prefix.
+Parameters:
+  LaceworkAccountName:
+    Type: String
+    NoEcho: true
+    Description: Lacework account name.
+    AllowedPattern: '^([A-Z0-9-]){20}$'
+    ConstraintDescription: Lacework account name contains alphanumeric characters only
+  LaunchAccountList:
+    Type: String
+    Description: Comma separated string of existing (enrolled with Control Tower) AWS account IDs that you wish to monitor with Lacework. See https://docs.aws.amazon.com/general/latest/gr/acct-identifiers.html
+    AllowedPattern: '^$|^(([0-9]){12},)*(([0-9]){12})$'
+    ConstraintDescription: LaunchAccountList must be either empty or a comma separated string of AWS account IDs (12 digit number) with no spaces
+  LaceworkSecretKey:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '^([A-Z0-9-_])$'
+    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
+    Description: Lacework API Secret Key.
+  StackSetName:
+    Type: String
+    Description: Lacework integration StackSet name
+    Default: Lacework-Integration
+  StackSetUrl:
+    Type: String
+    Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-customization.template.yml
+    Description: Lacework integration StackSet template URL
+  CTS3BucketName:
+    Type: String
+    Default: lacework-ct-cfn
+    Description: "S3 bucket for Lacework Control Tower Cloudformation assets. Use this if you want to customize your deployment. The bucket name can include numbers, lowercase letters, uppercase letters, and hyphens, but it cannot start or end with hyphens (-)."
+  CTS3KeyPrefix:
+    Type: String
+    Default: lacework-ct-cfn-dir/
+    Description: "S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment. The prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slashes (/). For more information, see https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html."
+Resources:
+  LambdaZipsBucket:
+    Type: AWS::S3::Bucket
+
+  CopyZips:
+    Type: Custom::CopyZips
+    Properties:
+      ServiceToken: !GetAtt 'CopyZipsFunction.Arn'
+      DestBucket: !Ref 'LambdaZipsBucket'
+      SourceBucket: !Ref 'CTS3BucketName'
+      Prefix: !Ref 'CTS3KeyPrefix'
+      Objects:
+        - 'lambda/LaceworkCTAuth.zip'
+        - 'lambda/LaceworkCTSetup.zip'
+        - 'lambda/LaceworkCTAccount.zip'
+        - 'lambda/LaceworkCTStackSet.zip'
+
+  CopyZipsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Path: /
+      Policies:
+        - PolicyName: lambda-copier
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${CTS3BucketName}/${CTS3KeyPrefix}*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:PutObjectTagging
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${LambdaZipsBucket}/${CTS3KeyPrefix}*'
+
+  CopyZipsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Copies objects from the S3 bucket to a new location.
+      Handler: index.handler
+      Runtime: python3.7
+      Role: !GetAtt 'CopyZipsRole.Arn'
+      Timeout: 240
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def copy_objects(source_bucket, dest_bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              for o in objects:
+                  key = prefix + o
+                  copy_source = {
+                      'Bucket': source_bucket,
+                      'Key': key
+                  }
+                  print('copy_source: %s' % copy_source)
+                  print('dest_bucket = %s'%dest_bucket)
+                  print('key = %s' %key)
+                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+                        Key=key)
+          def delete_objects(bucket, prefix, objects):
+              s3 = boto3.client('s3')
+              objects = {'Objects': [{'Key': prefix + o} for o in objects]}
+              s3.delete_objects(Bucket=bucket, Delete=objects)
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, None)
+          def handler(event, context):
+              # make sure we send a failure to CloudFormation if the function
+              # is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+                        / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  source_bucket = event['ResourceProperties']['SourceBucket']
+                  dest_bucket = event['ResourceProperties']['DestBucket']
+                  prefix = event['ResourceProperties']['Prefix']
+                  objects = event['ResourceProperties']['Objects']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(dest_bucket, prefix, objects)
+                  else:
+                      copy_objects(source_bucket, dest_bucket, prefix, objects)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, None)
+
+  LaceworkSetupFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: CopyZips
+    Properties:
+      Code:
+        S3Bucket: !Ref LambdaZipsBucket
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/setup/LaceworkCTSetup.zip']]
+      Handler: setup.lambda_handler
+      Runtime: python3.7
+      Timeout: 120
+      Environment:
+        Variables:
+          stackSetName: !Ref StackSetName
+          laceworkAcctName: !Ref LaceworkAccountName
+          seedAccounts: !Ref LaunchAccountList
+          stackSetUrl: !Ref StackSetUrl
+          laceworkSecret: !Ref LaceworkCredentials
+          laceworkStackSetSNS: !Ref LaceworkStackSetSNS
+      Role: !GetAtt LaceworkSetupFunctionRole.Arn
+
+  LaceworkSetupFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Setup_Operations
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Sid: StackSetInstanceCreate
+            Effect: Allow
+            Action:
+            - cloudformation:CreateStackInstances
+            - cloudformation:ListStackInstances
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/',  !Ref StackSetName, '*' ]]
+          - Sid: StackSetInstanceDelete
+            Effect: Allow
+            Action:
+            - cloudformation:DeleteStackSet
+            - cloudformation:DeleteStackInstances
+            - cloudformation:DescribeStackSetOperation
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/',  !Ref StackSetName, '*' ]]
+          - Sid: StackSetCreate
+            Effect: Allow
+            Action:
+            - cloudformation:CreateStackSet
+            - cloudformation:DescribeStackSet
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/Lacework-*' ]]
+          - Sid: S3Ops
+            Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetObject
+            Resource: 
+            - !Join ['',['arn:aws:s3:::', !Ref CTS3BucketName, '/', !Ref CTS3KeyPrefix, '*']]
+          - Sid: SNSOps
+            Effect: Allow
+            Action:
+            - sns:Publish
+            Resource: !Ref LaceworkStackSetSNS
+          - Sid: PassRole
+            Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole' ]]
+      ManagedPolicyArns:
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  LaceworkCredentials:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Lacework API Credentials
+      Name: LaceworkAPICredential
+      SecretString:
+        Fn::Join:
+        - ''
+        - - '{"AccessKeyID":"'
+          - Ref: LaceworkAccessKeyID
+          - '","AccessKey":"'
+          - Ref: LaceworkAccessKey
+          - '","AccessToken": "0"'
+          - ',"TokenExpiry": 0 }'
+
+  LaceworkSetup: # this will launch the setup function and process the initial accounts. appropriate methods are called via crhelper in the function.
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - LaceworkStackSetSNSSubscription
+      - LaceworkAccountSNSSubscription
+    Properties:
+      ServiceToken:
+        !GetAtt LaceworkSetupFunction.Arn
+
+  LaceworkStackSetSNS: # publishing to this SNS topic will trigger the stackset function. this function is called for each new account
+    Type: AWS::SNS::Topic
+  
+  LaceworkStackSetSNSLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LaceworkStackSetFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref LaceworkStackSetSNS
+
+  LaceworkStackSetSNSSubscription: # stackset function subscribes to new SNS messages
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt LaceworkStackSetFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref LaceworkStackSetSNS
+
+  LaceworkAccountSNS: # publishing to this SNS will trigger the account function. this function calls the lacework rest api to create new accounts in lacework
+    Type: AWS::SNS::Topic
+
+  LaceworkAccountSNSLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LaceworkAccountFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref LaceworkAccountSNS
+
+  LaceworkAccountSNSSubscription: # account function subscribes to new SNS messages
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt LaceworkAccountFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref LaceworkAccountSNS
+
+  LaceworkAuthSNS: # publishing to this SNS will trigger the auth function. this function will refresh the temporary access token
+    Type: AWS::SNS::Topic
+
+  LaceworkAuthSNSLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LaceworkAuthFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref LaceworkAuthSNS
+
+  LaceworkAuthSNSSubscription: # auth function subscribes to new SNS messages
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt LaceworkAuthFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref LaceworkAuthSNS
+      
+  LaceworkDLQ: # dead letter queue
+    Type: AWS::SQS::Queue
+    Properties: 
+      MessageRetentionPeriod: 1209600
+  
+  LaceworkStackSetFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Account_Operations
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Sid: StackSetInstanceOperations
+            Effect: Allow
+            Action:
+            - cloudformation:CreateStackInstances
+            - cloudformation:ListStackInstances
+            - cloudformation:ListStackSetOperations
+            - cloudformation:DescribeStackSetOperation
+            - cloudformation:DeleteStackInstances
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/',  !Ref StackSetName, '*' ]]
+          - Sid: StackSetOperations
+            Effect: Allow
+            Action:
+            - cloudformation:DescribeStackSet
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/Lacework-*' ]]
+          - Sid: SNSOps
+            Effect: Allow
+            Action:
+            - sns:Publish
+            Resource: 
+            - !Ref LaceworkStackSetSNS
+            - !Ref LaceworkAccountSNS
+            - !Ref LaceworkAuthSNS
+      ManagedPolicyArns:
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  
+  LaceworkStackSetFunction: # the stackset function deploys the stackset cloudformation template that allows lacework to get cross account access to read AWS audit logs and config
+    Type: AWS::Lambda::Function
+    DependsOn: CopyZips
+    Properties:
+      Code:
+        S3Bucket: !Ref LambdaZipsBucket
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/stackset/LaceworkCTStackSet.zip']]
+      Handler: stackset.lambda_handler
+      Runtime: python3.7
+      Timeout: 120
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          stackSetName: !Ref StackSetName
+          laceworkStackSetSNS: !Ref LaceworkStackSetSNS
+          laceworkAccountSNS: !Ref LaceworkAccountSNS
+      Role: !GetAtt LaceworkStackSetFunctionRole.Arn
+
+  LaceworkAccountFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Account_Operations
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Sid: StackSetInstanceOperations
+            Effect: Allow
+            Action:
+            - cloudformation:ListStackInstances
+            - cloudformation:ListStackSetOperations
+            - cloudformation:ListStackSetOperationResults
+            - cloudformation:DescribeStackSetOperation
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/',  !Ref StackSetName, '*' ]]
+          - Sid: StackSetOperations
+            Effect: Allow
+            Action:
+            - cloudformation:DescribeStackSet
+            Resource: 
+              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/Lacework-*' ]]
+          - Sid: SQSOps
+            Effect: Allow
+            Action:
+            - sqs:SendMessage
+            - sqs:DeleteMessage
+            - sqs:ReceiveMessage
+            - sqs:GetQueueAttributes
+            Resource: 
+            - !GetAtt LaceworkDLQ.Arn
+          - Sid: SNSOps
+            Effect: Allow
+            Action:
+            - sns:Publish
+            Resource: 
+            - !Ref LaceworkAccountSNS
+            - !Ref LaceworkAuthSNS
+          - Sid: SecretRead
+            Effect: Allow
+            Action:
+            - secretsmanager:GetSecretValue
+            Resource:
+              Ref: LaceworkCredentials
+      ManagedPolicyArns:
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  
+  LaceworkAccountFunction: # the account function calls the lacework rest api to create the AWS account references in lacework
+    Type: AWS::Lambda::Function
+    DependsOn: CopyZips
+    Properties:
+      Code:
+        S3Bucket: !Ref LambdaZipsBucket
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/account/LaceworkCTAccount.zip']]
+      Handler: account.lambda_handler
+      Runtime: python3.7
+      Timeout: 120
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          laceworkAcctName: !Ref LaceworkAccountName
+          stackSetUrl: !Ref StackSetUrl
+          laceworkSecret: !Ref LaceworkCredentials
+          laceworkAccountSNS: !Ref LaceworkAccountSNS
+          laceworkDLQ: !Ref LaceworkDLQ
+      Role: !GetAtt LaceworkAccountFunctionRole.Arn
+
+  LaceworkAuthFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Auth_Operations
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Sid: SQSOps
+              Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:DeleteMessage
+                - sqs:ReceiveMessage
+                - sqs:GetQueueAttributes
+              Resource:
+                - !GetAtt LaceworkDLQ.Arn
+            - Sid: SNSOps
+              Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref LaceworkAuthSNS
+            - Sid: SecretRead
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+                - secretsmanager:UpdateSecretValue
+              Resource:
+                Ref: LaceworkCredentials
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  LaceworkAuthFunction: # the auth function calls the lacework rest api to refresh an access token
+    Type: AWS::Lambda::Function
+    DependsOn: CopyZips
+    Properties:
+      Code:
+        S3Bucket: !Ref LambdaZipsBucket
+        S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'functions/packages/auth/LaceworkCTAuth.zip']]
+      Handler: auth.lambda_handler
+      Runtime: python3.7
+      Timeout: 120
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          laceworkAcctName: !Ref LaceworkAccountName
+          laceworkSecret: !Ref LaceworkCredentials
+          laceworkAuthSNS: !Ref LaceworkAuthSNS
+          laceworkDLQ: !Ref LaceworkDLQ
+      Role: !GetAtt LaceworkAuthFunctionRole.Arn
+      
+  LaceworkControlTowerEvents: # this event rule listens to AWS control tower lifecycle events and triggers the stackset function
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Captures AWS Control Tower LifeCycle events and invokes additional functions.
+      EventPattern:
+        detail:
+          eventName:
+          - CreateManagedAccount
+          - UpdateManagedAccount
+          eventSource:
+          - controltower.amazonaws.com
+        detail-type:
+        - AWS Service Event via CloudTrail
+        source:
+        - aws.controltower
+      Name: LaceworkControlTowerEvents
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt "LaceworkStackSetFunction.Arn"
+        Id: IDLaceworkControlTowerEvents
+
+  LaceworkControlTowerLifeCyclePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt "LaceworkStackSetFunction.Arn"
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt "LaceworkControlTowerEvents.Arn"
