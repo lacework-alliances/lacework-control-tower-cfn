@@ -20,32 +20,32 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logging.getLogger('boto3').setLevel(logging.CRITICAL)
-logging.getLogger('botocore').setLevel(logging.CRITICAL)
+logging.getLogger("boto3").setLevel(logging.CRITICAL)
+logging.getLogger("botocore").setLevel(logging.CRITICAL)
 session = boto3.Session()
 
 def message_processing(messages):
-    logger.info('auth.message_processing called.')
+    logger.info("auth.message_processing called.")
     target_stackset = {}
     for message in messages:
-        payload = json.loads(message['Sns']['Message'])
+        payload = json.loads(message["Sns"]["Message"])
         access_token_check(payload)
 
 def access_token_check(messages):
-    logger.info('auth.access_token_check called.')
-    sqsClient = session.client('sqs')
-    snsClient = session.client('sns')
-    laceworkAuthSNS = os.environ['laceworkAuthSNS']
-    laceworkDLQ = os.environ['laceworkDLQ']
-    laceworkSecret = os.environ['laceworkSecret']
-    laceworkAccName = os.environ['laceworkAcctName']
+    logger.info("auth.access_token_check called.")
+    sqsClient = session.client("sqs")
+    snsClient = session.client("sns")
+    laceworkAuthSNS = os.environ["laceworkAuthSNS"]
+    laceworkDLQ = os.environ["laceworkDLQ"]
+    laceworkApiCredentials = os.environ["laceworkApiCredentials"]
+    laceworkAccName = os.environ["laceworkAcctName"]
 
 
 def lambda_handler(event, context):
-    logger.info('auth.lambda_handler called.')
+    logger.info("auth.lambda_handler called.")
     logger.info(json.dumps(event))
     try:
-        if 'Records' in event:
-            message_processing(event['Records'])
+        if "Records" in event:
+            message_processing(event["Records"])
     except Exception as e:
         logger.error(e)

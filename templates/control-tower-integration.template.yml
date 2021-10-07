@@ -132,7 +132,7 @@ Resources:
     Properties:
       Description: Copies objects from the S3 bucket to a new location.
       Handler: index.handler
-      Runtime: python3.7
+      Runtime: python3.8
       Role: !GetAtt 'CopyZipsRole.Arn'
       Timeout: 240
       Code:
@@ -194,7 +194,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTSetup.zip']]
       Handler: setup.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.8
       Timeout: 120
       Environment:
         Variables:
@@ -202,7 +202,7 @@ Resources:
           laceworkAcctName: !Ref LaceworkAccountName
           seedAccounts: !Ref LaunchAccountList
           stackSetUrl: !Ref StackSetUrl
-          laceworkSecret: !Ref LaceworkCredentials
+          laceworkApiCredentials: !Ref LaceworkApiCredentials
           laceworkStackSetSNS: !Ref LaceworkStackSetSNS
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
 
@@ -264,11 +264,11 @@ Resources:
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
 
-  LaceworkCredentials:
+  LaceworkApiCredentials:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Description: Lacework API Credentials
-      Name: LaceworkAPICredential
+      Description: Lacework API Access Keys
+      Name: LaceworkApiCredentials
       SecretString:
         Fn::Join:
         - ''
@@ -398,7 +398,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTStackSet.zip']]
       Handler: stackset.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.8
       Timeout: 120
       ReservedConcurrentExecutions: 1
       Environment:
@@ -460,7 +460,7 @@ Resources:
             Action:
             - secretsmanager:GetSecretValue
             Resource:
-              Ref: LaceworkCredentials
+              Ref: LaceworkApiCredentials
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
   
@@ -472,14 +472,14 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTAccount.zip']]
       Handler: account.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.8
       Timeout: 120
       ReservedConcurrentExecutions: 5
       Environment:
         Variables:
           laceworkAcctName: !Ref LaceworkAccountName
           stackSetUrl: !Ref StackSetUrl
-          laceworkSecret: !Ref LaceworkCredentials
+          laceworkApiCredentials: !Ref LaceworkApiCredentials
           laceworkAccountSNS: !Ref LaceworkAccountSNS
           laceworkDLQ: !Ref LaceworkDLQ
       Role: !GetAtt LaceworkAccountFunctionRole.Arn
@@ -521,7 +521,7 @@ Resources:
                 - secretsmanager:GetSecretValue
                 - secretsmanager:UpdateSecretValue
               Resource:
-                Ref: LaceworkCredentials
+                Ref: LaceworkApiCredentials
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
 
@@ -533,13 +533,13 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'CTS3KeyPrefix', 'lambda/LaceworkCTAuth.zip']]
       Handler: auth.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.8
       Timeout: 120
       ReservedConcurrentExecutions: 5
       Environment:
         Variables:
           laceworkAcctName: !Ref LaceworkAccountName
-          laceworkSecret: !Ref LaceworkCredentials
+          laceworkApiCredentials: !Ref LaceworkApiCredentials
           laceworkAuthSNS: !Ref LaceworkAuthSNS
           laceworkDLQ: !Ref LaceworkDLQ
       Role: !GetAtt LaceworkAuthFunctionRole.Arn
