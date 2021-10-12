@@ -28,7 +28,7 @@ def message_processing(messages):
     logger.info("account.message_processing called.")
     target_stackset = {}
     for message in messages:
-        payload = json.loads(message["Sns"]["Message"])
+        payload = json.loads(message['Sns']['Message'])
         stackset_check(payload)
 
 def stackset_check(messages):
@@ -36,21 +36,21 @@ def stackset_check(messages):
     cloudFormationClient = session.client("cloudformation")
     sqsClient = session.client("sqs")
     snsClient = session.client("sns")
-    laceworkAccountSNS = os.environ["laceworkAccountSNS"]
-    laceworkDLQ = os.environ["laceworkDLQ"]
+    laceworkAccountSNS = os.environ['laceworkAccountSNS']
+    laceworkDLQ = os.environ['laceworkDLQ']
     
     for stackSetName, params in messages.items():
-        logger.info("Checking stack set instances: {} {}".format(stackSetName, params["OperationId"]))
+        logger.info("Checking stack set instances: {} {}".format(stackSetName, params['OperationId']))
         try:
             stackset_status = cloudFormationClient.describe_stack_set_operation(
                 StackSetName=stackSetName,
-                OperationId=params["OperationId"]
+                OperationId=params['OperationId']
             )
             if "StackSetOperation" in stackset_status:
-                if stackset_status["StackSetOperation"]["Status"] in ["RUNNING","STOPPING","QUEUED",]:
+                if stackset_status['StackSetOperation']['Status'] in ['RUNNING","STOPPING","QUEUED",]:
                     logger.info("Stackset operation still running")
                     messageBody = {}
-                    messageBody[stackSetName] = {"OperationId": params["OperationId"]}
+                    messageBody[stackSetName] = {"OperationId": params['OperationId']}
                     try:
                         logger.info("Sleep and wait for 20 seconds")
                         time.sleep(20)
@@ -62,30 +62,30 @@ def stackset_check(messages):
                     except Exception as snsException:
                         logger.error("Failed to send queue for account creation: {}".format(snsException))
                 
-                elif stackset_status["StackSetOperation"]["Status"] in ["SUCCEEDED"]:
+                elif stackset_status['StackSetOperation']['Status'] in ['SUCCEEDED']:
                     logger.info("Start account creation")
                     cloudFormationPaginator = cloudFormationClient.get_paginator("list_stack_set_operation_results")
                     stackset_iterator = cloudFormationPaginator.paginate(
                         StackSetName=stackSetName,
-                        OperationId=params["OperationId"]
+                        OperationId=params['OperationId']
                     )
                     
-                    laceworkApiCredentials = os.environ["laceworkApiCredentials"]
-                    laceworkAccName = os.environ["laceworkAcctName"]
+                    laceworkApiCredentials = os.environ['laceworkApiCredentials']
+                    laceworkAccName = os.environ['laceworkAcctName']
                     laceworkAccessToken = get_access_token(laceworkApiCredentials)
                     
                     if laceworkAccessKey:
                         for page in stackset_iterator:
                             if "Summaries" in page:
-                                for operation in page["Summaries"]:
-                                    if operation["Status"] in ("SUCCEEDED"):
-                                        targetAccount = operation["Account"]
+                                for operation in page['Summaries']:
+                                    if operation['Status'] in ("SUCCEEDED"):
+                                        targetAccount = operation['Account']
                                         logger.info("call the correct add account here")
                     
-                elif stackset_status["StackSetOperation"]["Status"] in ["FAILED","STOPPED"]:
+                elif stackset_status['StackSetOperation']['Status'] in ['FAILED","STOPPED']:
                     logger.warning("Stackset operation failed/stopped")
                     messageBody = {}
-                    messageBody[stackSetName] = {"OperationId": params["OperationId"]}
+                    messageBody[stackSetName] = {"OperationId": params['OperationId']}
                     try:
                         sqsResponse = sqsClient.send_message(
                             QueueUrl=laceworkDLQ,
@@ -105,10 +105,10 @@ def get_access_token(secret_arn):
             SecretId=secret_arn
         )
         if "SecretString" in secret_response:
-            token = json.loads(secret_response["SecretString"])["AccessToken"]
-            expiry = json.loads(secret_response["SecretString"])["TokenExpiry"]
+            token = json.loads(secret_response['SecretString'])['AccessToken']
+            expiry = json.loads(secret_response['SecretString'])['TokenExpiry']
             if expiry - time.time() < 3600 :
-                keyId = json.loads(secret_response["SecretString"])["AccessKeyId"]
+                keyId = json.loads(secret_response['SecretString'])['AccessKeyId']
                 messageBody = {}
                 messageBody[keyId] = {"Refresh request"}
                 try:
@@ -136,6 +136,8 @@ def lambda_handler(event, context):
     logger.info(json.dumps(event))
     try:
         if "Records" in event:
-            message_processing(event["Records"])
+            message_processing(event['Records'])
+        else:
+            logger.error("Event not processed.")
     except Exception as e:
         logger.error(e)

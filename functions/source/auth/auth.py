@@ -28,17 +28,17 @@ def message_processing(messages):
     logger.info("auth.message_processing called.")
     target_stackset = {}
     for message in messages:
-        payload = json.loads(message["Sns"]["Message"])
+        payload = json.loads(message['Sns']['Message'])
         access_token_check(payload)
 
 def access_token_check(messages):
     logger.info("auth.access_token_check called.")
     sqsClient = session.client("sqs")
     snsClient = session.client("sns")
-    laceworkAuthSNS = os.environ["laceworkAuthSNS"]
-    laceworkDLQ = os.environ["laceworkDLQ"]
-    laceworkApiCredentials = os.environ["laceworkApiCredentials"]
-    laceworkAccName = os.environ["laceworkAcctName"]
+    laceworkAuthSNS = os.environ['laceworkAuthSNS']
+    laceworkDLQ = os.environ['laceworkDLQ']
+    laceworkApiCredentials = os.environ['laceworkApiCredentials']
+    laceworkAccName = os.environ['laceworkAcctName']
 
 
 def lambda_handler(event, context):
@@ -46,6 +46,8 @@ def lambda_handler(event, context):
     logger.info(json.dumps(event))
     try:
         if "Records" in event:
-            message_processing(event["Records"])
+            message_processing(event['Records'])
+        else:
+            logger.error("Event not processed.")
     except Exception as e:
         logger.error(e)
