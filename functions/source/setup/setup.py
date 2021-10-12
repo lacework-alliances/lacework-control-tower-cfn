@@ -69,8 +69,8 @@ def create(event, context):
         logger.info("Stack set {} does not exist, creating it now.".format(stack_set_name))
         cloud_formation_client.create_stack_set(
             StackSetName=stack_set_name,
-            Description="Configures Lacework to monitor your AWS accounts. Launch as Stack Set in your Control Tower "
-                        "landing zone management account.",
+            Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
+                        "and automated AWS security monitoring.",
             TemplateURL=stack_set_url,
             Parameters=[
                 {

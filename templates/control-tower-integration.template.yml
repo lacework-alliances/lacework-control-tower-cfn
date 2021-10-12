@@ -1,75 +1,123 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS Control Tower customization that adds in Lacework integration to your landing zone.
+Description: "Lacework AWS Control Tower Integration: Cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring."
 Metadata:
-  QuickStartDocumentation:
-    EntrypointName: "Parameters for deploying Lacework AWS Control Tower integration"
   AWS::CloudFormation::Interface: 
     ParameterGroups:
       - Label:
-          default: "Lacework configuration"
+          default: "Basic Configuration"
         Parameters:
           - LaceworkAccountName
           - LaceworkAccessKeyID
           - LaceworkSecretKey
-      - Label:
-          default: "Deployment configuration"
-        Parameters:
           - LaunchAccountList
           - StackSetName
-          - StackSetUrl
+          - StackSetType
       - Label:
-          default: "Control Tower Cloudformation S3 assets location"
+          default: "Advanced Configuration"
         Parameters:
+          - CreateTrail
+          - NewTrailLogFilePrefix
+          - ExistingTrailS3BucketName
+          - ExistingTrailTopicArn
+          - StackSetUrl
           - CTS3BucketName
           - CTS3KeyPrefix
     ParameterLabels:
       LaceworkAccountName:
-        default: Lacework account name
+        default: Lacework Acount Name
       LaceworkAccessKeyID:
-        default: Lacework access key ID
+        default: Lacework Access Key ID
       LaceworkSecretKey:
-        default: Lacework secret key
+        default: Lacework Secret Key
       LaunchAccountList:
-        default: Existing AWS account ID list
+        default: Existing AWS Account ID List
       StackSetName:
-        default: StackSet name.
+        default: StackSet Name
+      StackSetType:
+        default: StackSet Type
+      CreateTrail:
+        default: Create New CloudTrail?
+      NewTrailLogFilePrefix:
+        default: CloudTrail Log Prefix
+      ExistingTrailS3BucketName:
+        default: Existing CloudTrail S3 Bucket
       StackSetUrl:
-        default: StackSet template URL.
+        default: Custom StackSet Type S3 Template URL
       CTS3BucketName:
-        default: Control Tower Cloudformation S3 assets bucket name.
+        default: Custom Cloudformation S3 Bucket
       CTS3KeyPrefix:
-        default: Control Tower Cloudformation S3 assets key prefix.
+        default: Custom Cloudformation S3 Key Prefix
 Parameters:
+  # basic
   LaceworkAccountName:
     Type: String
-    Description: Lacework account name.
+    Description: Your Lacework account name. ie. <account name>.lacework.net
     AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: Lacework account name contains alphanumeric characters only
   LaceworkAccessKeyID:
     Type: String
     NoEcho: true
     AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
-    Description: Lacework API Secret Key.
+    ConstraintDescription: Lacework API Access Key ID contains alphanumeric characters and symbols only
+    Description: Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
   LaceworkSecretKey:
     Type: String
     NoEcho: true
     AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
-    Description: Lacework API Secret Key.
+    Description: Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
   LaunchAccountList:
     Type: String
     Description: Comma separated string of existing (enrolled with Control Tower) AWS account IDs that you wish to monitor with Lacework. See https://docs.aws.amazon.com/general/latest/gr/acct-identifiers.html
     AllowedPattern: '^$|^(([0-9]){12},)*(([0-9]){12})$'
-    ConstraintDescription: LaunchAccountList must be either empty or a comma separated string of AWS account IDs (12 digit number) with no spaces
+    ConstraintDescription: Must be either empty or a comma separated string of AWS account IDs (12 digit number) with no spaces
   StackSetName:
     Type: String
-    Description: Lacework Control Tower StackSet name
+    Description: The name for the Lacework Control Tower StackSet
     Default: Lacework-Control-Tower-StackSet
+  StackSetType:
+    AllowedValues:
+      - 'Config'
+      - 'CloudTrail+Config'
+      - 'Custom'
+    Type: String
+    Default: CloudTrail+Config
+    Description: The Lacework Control Tower StackSet type to use
+  # Advanced
+  CreateTrail:
+    Description: >-
+      You can have a new multi-region CloudTrail be created (along with a
+      new S3 bucket and SNS topic). Or use your existing CloudTrail setup and specify the existing S3 bucket and SNS topic.
+    Type: String
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+    Default: 'Yes'
+  NewTrailLogFilePrefix:
+    Description: >-
+      If you want the new trail to prefix its log file names, provide the prefix
+      to use.  Otherwise, leave it blank.
+    Default: ''
+    Type: String
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z0-9-_.!()* ]*'
+    ConstraintDescription: 'Invalid log file prefix.  Must match pattern [a-zA-Z0-9-_.!()* ]*'
+  ExistingTrailS3BucketName:
+    Description: >-
+      Provide the name of the S3 bucket for your existing trail setup.  The
+      bucket must be owned by the current account.
+    Default: ''
+    Type: String
+    MaxLength: '128'
+  ExistingTrailTopicArn:
+    Description: Provide the ARN of the SNS topic for your existing trail setup.
+    Default: ''
+    Type: String
+    MaxLength: '256'
   StackSetUrl:
     Type: String
     Default: https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg.template.yml
-    Description: Lacework Control Tower StackSet template URL
+    Description: If you selected the Custom StackSet Type, enter the custom template URL here.
   CTS3BucketName:
     Type: String
     Default: lacework-alliances
@@ -78,6 +126,16 @@ Parameters:
     Type: String
     Default: lacework-control-tower-cfn/
     Description: "S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment. The prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slashes (/). For more information, see https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html."
+Conditions:
+  UseConfigAndCloudTrailStackSet: !Equals
+    - !Ref StackSetType
+    - 'CloudTrail+Config'
+  UseConfigOnlyStackSet: !Equals
+    - !Ref StackSetType
+    - 'Config'
+  UseCustomStackSet: !Equals
+    - !Ref StackSetType
+    - 'Custom'
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -201,7 +259,16 @@ Resources:
           stack_set_name: !Ref StackSetName
           lacework_account_name: !Ref LaceworkAccountName
           account_list: !Ref LaunchAccountList
-          stack_set_url: !Ref StackSetUrl
+          stack_set_url: !If
+            - UseConfigAndCloudTrailStackSet
+            - 'https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-ct-cfg.template.yml'
+            - !If
+              - UseConfigOnlyStackSet
+              - 'https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/lacework-aws-cfg.template.yml'
+              - !If
+                - UseCustomStackSet
+                - !Ref StackSetUrl
+                - !Ref AWS::NoValue
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_stack_set_sns: !Ref LaceworkStackSetSNS
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
@@ -480,7 +547,6 @@ Resources:
       Environment:
         Variables:
           lacework_account_name: !Ref LaceworkAccountName
-          stack_set_urll: !Ref StackSetUrl
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_dlq: !Ref LaceworkDLQ
