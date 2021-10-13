@@ -15,11 +15,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+import random
+import string
+
 import boto3
 import json
 import logging
 import os
 import time
+
+import requests
 import urllib3
 from crhelper import CfnResource
 
@@ -51,19 +56,26 @@ def lambda_handler(event, context):
 def create(event, context):
     logger.info("setup.create called.")
     logger.info(json.dumps(event))
+    first_launch = False
     try:
         cloud_formation_client = session.client("cloudformation")
-        first_launch = False
         stack_set_name = os.environ['stack_set_name']
         stack_set_url = os.environ['stack_set_url']
         lacework_account_name = os.environ['lacework_account_name']
         lacework_api_credentials = os.environ['lacework_api_credentials']
         lacework_stack_set_sns = os.environ['lacework_stack_set_sns']
+        create_trail = os.environ['create_trail']
+        trail_log_prefix = os.environ['trail_log_prefix']
+        existing_trail_s3_bucket_name = os.environ['existing_trail_s3_bucket_name']
+        existing_trail_topic_arn = os.environ['existing_trail_topic_arn']
         management_account_id = context.invoked_function_arn.split(":")[4]
         region_name = context.invoked_function_arn.split(":")[3]
+        external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
         cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
         logger.info("Stack set {} already exist".format(stack_set_name))
         helper.Data.update({"result": stack_set_name})
+
+        access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials);
 
     except Exception as describeException:
         logger.info("Stack set {} does not exist, creating it now.".format(stack_set_name))
@@ -80,8 +92,38 @@ def create(event, context):
                     "ResolvedValue": "string"
                 },
                 {
-                    "ParameterKey": "ResourceNamePrefix",
-                    "ParameterValue": lacework_account_name,
+                    "ParameterKey": "ExternalID",
+                    "ParameterValue": external_id,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "AccessToken",
+                    "ParameterValue": access_token,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "CreateTrail",
+                    "ParameterValue": create_trail,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "NewTrailLogFilePrefix",
+                    "ParameterValue": trail_log_prefix,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExistingTrailBucketName",
+                    "ParameterValue": existing_trail_s3_bucket_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExistingTrailTopicArn",
+                    "ParameterValue": existing_trail_topic_arn,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }
@@ -238,3 +280,45 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
     except Exception as e:
 
         print("send(..) failed executing http.request(..):", e)
+
+
+def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
+    secret_client = session.client('secretsmanager')
+    try:
+        secret_response = secret_client.get_secret_value(
+            SecretId=lacework_api_credentials
+        )
+        if 'SecretString' not in secret_response:
+            logger.error("SecretString not found in {}".format(lacework_api_credentials))
+            return None
+
+        secret_string_dict = json.loads(secret_response['SecretString'])
+        access_key_id = secret_string_dict['AccessKeyId']
+        secret_key = secret_string_dict['SecretKey']
+
+        request_payload = '''
+        {{
+            keyId: "{}", 
+            expiryTime: 86400
+        }}
+        '''.format(access_key_id)
+        logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
+
+        response = requests.post(lacework_account_name + ".lacework.net/api/v2/access/tokens",
+                                 headers={'X-LW-UAKS': secret_key}, verify=True, data=request_payload)
+        logger.info('API response code : {}'.format(response.status_code))
+        logger.info('API response : {}'.format(response.text))
+        if response.status_code == 200:
+            payload_response = response.json()
+            expires_at = payload_response['expiresAt']
+            token = payload_response['token']
+            secret_string_dict['AccessToken'] = token
+            secret_string_dict['TokenExpiry'] = expires_at
+            secret_client.update_secret(SecretId=lacework_api_credentials, SecretString=json.dumps(secret_string_dict))
+            return token
+        else:
+            logger.error("Generate access key failure {} {}".format(response.status_code, response.text))
+            return None
+    except Exception as e:
+        logger.error("Error setting up initial access token {}".format(e))
+        return None

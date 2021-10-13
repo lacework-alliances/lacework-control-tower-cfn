@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring."
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring."
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -24,7 +24,7 @@ Metadata:
           - CTS3KeyPrefix
     ParameterLabels:
       LaceworkAccountName:
-        default: Lacework Acount Name
+        default: Lacework Account Name
       LaceworkAccessKeyID:
         default: Lacework Access Key ID
       LaceworkSecretKey:
@@ -41,6 +41,8 @@ Metadata:
         default: CloudTrail Log Prefix
       ExistingTrailS3BucketName:
         default: Existing CloudTrail S3 Bucket
+      ExistingTrailTopicArn:
+        default: Existing CloudTrail Topic Arn
       StackSetUrl:
         default: Custom StackSet Type S3 Template URL
       CTS3BucketName:
@@ -271,6 +273,10 @@ Resources:
                 - !Ref AWS::NoValue
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_stack_set_sns: !Ref LaceworkStackSetSNS
+          create_trail: !Ref CreateTrail
+          trail_log_prefix: !Ref NewTrailLogFilePrefix
+          existing_trail_s3_bucket_name: !Ref ExistingTrailS3BucketName
+          existing_trail_topic_arn: !Ref ExistingTrailTopicArn
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
 
   LaceworkSetupFunctionRole:
