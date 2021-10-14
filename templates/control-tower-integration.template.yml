@@ -334,6 +334,13 @@ Resources:
             Action:
             - iam:PassRole
             Resource: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole' ]]
+          - Sid: SecretReadUpdate
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:UpdateSecret
+            Resource:
+              Ref: LaceworkApiCredentials
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
 
@@ -589,11 +596,11 @@ Resources:
                 - sns:Publish
               Resource:
                 - !Ref LaceworkAuthSNS
-            - Sid: SecretRead
+            - Sid: SecretReadUpdate
               Effect: Allow
               Action:
                 - secretsmanager:GetSecretValue
-                - secretsmanager:UpdateSecretValue
+                - secretsmanager:UpdateSecret
               Resource:
                 Ref: LaceworkApiCredentials
       ManagedPolicyArns:

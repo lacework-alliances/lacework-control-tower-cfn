@@ -33,8 +33,9 @@ FAILED = "FAILED"
 
 http = urllib3.PoolManager()
 
+LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(LOGLEVEL)
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 session = boto3.Session()
@@ -63,6 +64,14 @@ def create(event, context):
         stack_set_url = os.environ['stack_set_url']
         lacework_account_name = os.environ['lacework_account_name']
         lacework_api_credentials = os.environ['lacework_api_credentials']
+
+        access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials)
+        if access_token is None:
+            message = "Unable to get Lacework access token."
+            logger.error(message)
+            send_cfn_response(event, context, FAILED, {"Message": message})
+            return None
+
         lacework_stack_set_sns = os.environ['lacework_stack_set_sns']
         create_trail = os.environ['create_trail']
         trail_log_prefix = os.environ['trail_log_prefix']
@@ -74,8 +83,6 @@ def create(event, context):
         cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
         logger.info("Stack set {} already exist".format(stack_set_name))
         helper.Data.update({"result": stack_set_name})
-
-        access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials);
 
     except Exception as describeException:
         logger.info("Stack set {} does not exist, creating it now.".format(stack_set_name))
@@ -250,7 +257,7 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
                       reason=None):
     response_url = event['ResponseURL']
 
-    print(response_url)
+    logger.info(response_url)
 
     response_body = {
         'Status': response_status,
@@ -265,8 +272,7 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
 
     json_response_body = json.dumps(response_body)
 
-    print("Response body:")
-    print(json_response_body)
+    logger.info("Response body: {}".format(json_response_body))
 
     headers = {
         'content-type': '',
@@ -275,11 +281,10 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
 
     try:
         response = http.request('PUT', response_url, headers=headers, body=json_response_body)
-        print("Status code:", response.status)
+        logger.info("Status code: {}".format(response.status))
 
     except Exception as e:
-
-        print("send(..) failed executing http.request(..):", e)
+        logger.error("send_cfn_response error {}".format(e))
 
 
 def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
@@ -293,22 +298,23 @@ def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
             return None
 
         secret_string_dict = json.loads(secret_response['SecretString'])
-        access_key_id = secret_string_dict['AccessKeyId']
+        access_key_id = secret_string_dict['AccessKeyID']
         secret_key = secret_string_dict['SecretKey']
 
         request_payload = '''
         {{
-            keyId: "{}", 
-            expiryTime: 86400
+            "keyId": "{}", 
+            "expiryTime": 86400
         }}
         '''.format(access_key_id)
         logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
 
-        response = requests.post(lacework_account_name + ".lacework.net/api/v2/access/tokens",
-                                 headers={'X-LW-UAKS': secret_key}, verify=True, data=request_payload)
+        response = requests.post("https://"+lacework_account_name + ".lacework.net/api/v2/access/tokens",
+                                 headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
+                                 verify=True, data=request_payload)
         logger.info('API response code : {}'.format(response.status_code))
-        logger.info('API response : {}'.format(response.text))
-        if response.status_code == 200:
+        logger.debug('API response : {}'.format(response.text))
+        if response.status_code == 201:
             payload_response = response.json()
             expires_at = payload_response['expiresAt']
             token = payload_response['token']
