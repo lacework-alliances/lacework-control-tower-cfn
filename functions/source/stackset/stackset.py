@@ -15,14 +15,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+from datetime import datetime
+
 import boto3
 import json
 import logging
 import os
 import time
 
+LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(LOGLEVEL)
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 session = boto3.Session()
@@ -46,7 +49,6 @@ def lambda_handler(event, context):
 
 def stack_set_sns_processing(messages):
     logger.info("stack_set.message_processing called.")
-    target_stack_set = {}
     for message in messages:
         payload = json.loads(message['Sns']['Message'])
         cfn_stack_set_processing(payload)
@@ -58,32 +60,23 @@ def lifecycle_eventbridge_processing(event):
     if event['detail']['serviceEventDetails']['createManagedAccountStatus']['state'] == "SUCCEEDED":
         cloud_formation_client = session.client("cloudformation")
         account_id = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountId']
+        region = event['detail']['awsRegion']
         stack_set_name = os.environ['stack_set_name']
-        stack_set_instances = list_stack_instance_by_account(session, stack_set_name, account_id)
-        stack_set_instances_regions = list_stack_instance_region(session, stack_set_name)
+        stack_set_instances = list_stack_instance_by_account_region(session, stack_set_name, account_id, region)
 
-        logger.info("Processing Lifecycle event for {}".format(account_id))
+        logger.info("Processing Lifecycle event for {} in ".format(account_id, region))
         # stack_set instance does not exist, create a new one
         if len(stack_set_instances) == 0:
-            logger.info("Create new stack_set instance for {} {} {}".format(stack_set_name, account_id,
-                                                                            stack_set_instances_regions))
+            logger.info("Create new stack set instance for {} {} {}".format(stack_set_name, account_id,
+                                                                            region))
             message_body = {stack_set_name: {"target_accounts": [account_id],
-                                             "target_regions": stack_set_instances_regions}}
+                                             "target_regions": [region]}}
             cfn_stack_set_processing(message_body)
 
         # stack_set instance already exist, check for missing region
         elif len(stack_set_instances) > 0:
-            stack_set_region = []
-            for instance in stack_set_instances:
-                stack_set_region.append(instance['Region'])
-            next_region = list(set(stack_set_instances_regions) - set(stack_set_region))
-            if len(next_region) > 0:
-                logger.info(
-                    "Append new stack_set instance for {} {} {}".format(stack_set_name, account_id, next_region))
-                message_body = {stack_set_name: {"target_accounts": [account_id], "target_regions": next_region}}
-                cfn_stack_set_processing(message_body)
-            else:
-                logger.info("stack_set instance already exist : {}".format(stack_set_instances))
+            logger.info("Stack set instance already exists {} {} {}".format(stack_set_name, account_id,
+                                                                            region))
     else:
         logger.error("Invalid event state, expected: SUCCEEDED : {}".format(event))
 
@@ -94,8 +87,13 @@ def cfn_stack_set_processing(messages):
     sns_client = session.client("sns")
     lacework_stack_set_sns = os.environ['lacework_stack_set_sns']
     lacework_account_sns = os.environ['lacework_account_sns']
-    lacework_auth_sns = os.environ['lacework_auth_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
+    access_token = get_access_token(lacework_api_credentials)
+
+    if access_token is None:
+        message = "Unable to get Lacework access token. Failed to create stack instances."
+        logger.error(message)
+        return None
 
     for stack_set_name, params in messages.items():
         logger.info("Processing stack instances for {}".format(stack_set_name))
@@ -123,7 +121,16 @@ def cfn_stack_set_processing(messages):
             if stack_operations:
                 response = cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
                                                                          Accounts=param_accounts,
-                                                                         Regions=param_regions)  # TODO need to override some parameter values in the stack set here
+                                                                         Regions=param_regions,
+                                                                         ParameterOverrides=[
+                                                                             {
+                                                                                 "ParameterKey": "AccessToken",
+                                                                                 "ParameterValue": access_token,
+                                                                                 "UsePreviousValue": False,
+                                                                                 "ResolvedValue": "string"
+                                                                             }
+                                                                         ])
+
                 logger.info("stack_set instance created {}".format(response))
                 message_body = {stack_set_name: {"OperationId": response['OperationId']}}
                 try:
@@ -153,14 +160,15 @@ def cfn_stack_set_processing(messages):
             raise describeException
 
 
-def list_stack_instance_by_account(target_session, stack_set_name, account_id):
-    logger.info("stack_set.list_stack_instance_by_account called.")
+def list_stack_instance_by_account_region(target_session, stack_set_name, account_id, region):
+    logger.info("stack_set.list_stack_instance_by_account_region called.")
     logger.info(target_session)
     try:
         cfn_client = target_session.client("cloudformation")
         stack_set_result = cfn_client.list_stack_instances(
             StackSetName=stack_set_name,
-            StackInstanceAccount=account_id
+            StackInstanceAccount=account_id,
+            StackInstanceRegion=region
         )
 
         logger.info("stack_set_result: {}".format(stack_set_result))
@@ -180,31 +188,24 @@ def list_stack_instance_by_account(target_session, stack_set_name, account_id):
         return False
 
 
-def list_stack_instance_region(target_session, stack_set_name):
-    logger.info("stack_set.list_stack_instance_region called.")
-    logger.info(target_session)
+def get_access_token(lacework_api_credentials):
+    logger.info("stackset.get_access_token called.")
+    lacework_api_credentials = os.environ['lacework_api_credentials']
+
+    secret_client = session.client('secretsmanager')
     try:
-        cfn_client = target_session.client("cloudformation")
-        stack_set_result = cfn_client.list_stack_instances(
-            StackSetName=stack_set_name
+        secret_response = secret_client.get_secret_value(
+            SecretId=lacework_api_credentials
         )
-        logger.info("stack_set_result: {}".format(stack_set_result))
-        if stack_set_result and "Summaries" in stack_set_result:
-            stack_set_list = stack_set_result['Summaries']
-            while "NextToken" in stack_set_result:
-                stack_set_result = cfn_client.list_stack_set_instance(
-                    NextToken=stack_set_result['NextToken']
-                )
-                stack_set_list.append(stack_set_result['Summaries'])
+        if 'SecretString' not in secret_response:
+            logger.error("SecretString not found in {}".format(lacework_api_credentials))
+            return None
 
-            stack_set_list_region = []
-            for instance in stack_set_list:
-                stack_set_list_region.append(instance['Region'])
-            stack_set_list_region = list(set(stack_set_list_region))
+        secret_string_dict = json.loads(secret_response['SecretString'])
+        access_token = secret_string_dict['AccessToken']
 
-            return stack_set_list_region
-        else:
-            return False
+        return access_token
+
     except Exception as e:
-        logger.error("List Stack Instance error: {}.".format(e))
-        return False
+        logger.error("Get access token error: {}.".format(e))
+        return None

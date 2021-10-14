@@ -334,7 +334,7 @@ Resources:
             Action:
             - iam:PassRole
             Resource: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole' ]]
-          - Sid: SecretReadUpdate
+          - Sid: SecretRead
             Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
@@ -404,24 +404,6 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref LaceworkAccountSNS
 
-  LaceworkAuthSNS: # publishing to this SNS will trigger the auth function. this function will refresh the temporary access token
-    Type: AWS::SNS::Topic
-
-  LaceworkAuthSNSLambdaPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt LaceworkAuthFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref LaceworkAuthSNS
-
-  LaceworkAuthSNSSubscription: # auth function subscribes to new SNS messages
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt LaceworkAuthFunction.Arn
-      Protocol: lambda
-      TopicArn: !Ref LaceworkAuthSNS
-
   LaceworkDLQ: # dead letter queue
     Type: AWS::SQS::Queue
     Properties:
@@ -466,7 +448,12 @@ Resources:
             Resource:
             - !Ref LaceworkStackSetSNS
             - !Ref LaceworkAccountSNS
-            - !Ref LaceworkAuthSNS
+          - Sid: SecretRead
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              Ref: LaceworkApiCredentials
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
 
@@ -486,7 +473,6 @@ Resources:
           stack_set_name: !Ref StackSetName
           lacework_stack_set_sns: !Ref LaceworkStackSetSNS
           lacework_account_sns: !Ref LaceworkAccountSNS
-          lacework_auth_sns: !Ref LaceworkAuthSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkStackSetFunctionRole.Arn
 
@@ -536,7 +522,6 @@ Resources:
             - sns:Publish
             Resource:
             - !Ref LaceworkAccountSNS
-            - !Ref LaceworkAuthSNS
           - Sid: SecretRead
             Effect: Allow
             Action:
@@ -581,21 +566,6 @@ Resources:
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-            - Sid: SQSOps
-              Effect: Allow
-              Action:
-                - sqs:SendMessage
-                - sqs:DeleteMessage
-                - sqs:ReceiveMessage
-                - sqs:GetQueueAttributes
-              Resource:
-                - !GetAtt LaceworkDLQ.Arn
-            - Sid: SNSOps
-              Effect: Allow
-              Action:
-                - sns:Publish
-              Resource:
-                - !Ref LaceworkAuthSNS
             - Sid: SecretReadUpdate
               Effect: Allow
               Action:
@@ -621,10 +591,24 @@ Resources:
         Variables:
           lacework_account_name: !Ref LaceworkAccountName
           lacework_api_credentials: !Ref LaceworkApiCredentials
-          lacework_auth_sns: !Ref LaceworkAuthSNS
-          lacework_dlq: !Ref LaceworkDLQ
       Role: !GetAtt LaceworkAuthFunctionRole.Arn
-      
+
+  LaceworkAuthFunctionScheduleEvents:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      ScheduleExpression: cron(* 1/6 * * ? *)
+      Targets:
+        - Arn: !GetAtt "LaceworkAuthFunction.Arn"
+          Id: IDLaceworkAuthFunctionScheduleEvents
+
+  LaceworkAuthFunctionSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt "LaceworkAuthFunction.Arn"
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt "LaceworkAuthFunctionScheduleEvents.Arn"
+
   LaceworkControlTowerEvents: # this event rule listens to AWS control tower lifecycle events and triggers the stackset function
     Type: AWS::Events::Rule
     Properties:

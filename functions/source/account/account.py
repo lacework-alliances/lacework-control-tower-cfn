@@ -24,112 +24,6 @@ logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 session = boto3.Session()
 
-def message_processing(messages):
-    logger.info("account.message_processing called.")
-    target_stackset = {}
-    for message in messages:
-        payload = json.loads(message['Sns']['Message'])
-        stackset_check(payload)
-
-def stackset_check(messages):
-    logger.info("account.stackset_check called.")
-    cloudFormationClient = session.client("cloudformation")
-    sqsClient = session.client("sqs")
-    snsClient = session.client("sns")
-    laceworkAccountSNS = os.environ['laceworkAccountSNS']
-    laceworkDLQ = os.environ['laceworkDLQ']
-    
-    for stackSetName, params in messages.items():
-        logger.info("Checking stack set instances: {} {}".format(stackSetName, params['OperationId']))
-        try:
-            stackset_status = cloudFormationClient.describe_stack_set_operation(
-                StackSetName=stackSetName,
-                OperationId=params['OperationId']
-            )
-            if "StackSetOperation" in stackset_status:
-                if stackset_status['StackSetOperation']['Status'] in ['RUNNING","STOPPING","QUEUED",]:
-                    logger.info("Stackset operation still running")
-                    messageBody = {}
-                    messageBody[stackSetName] = {"OperationId": params['OperationId']}
-                    try:
-                        logger.info("Sleep and wait for 20 seconds")
-                        time.sleep(20)
-                        snsResponse = snsClient.publish(
-                            TopicArn=laceworkAccountSNS,
-                            Message = json.dumps(messageBody))
-
-                        logger.info("Re-queued for account creation: {}".format(snsResponse))
-                    except Exception as snsException:
-                        logger.error("Failed to send queue for account creation: {}".format(snsException))
-                
-                elif stackset_status['StackSetOperation']['Status'] in ['SUCCEEDED']:
-                    logger.info("Start account creation")
-                    cloudFormationPaginator = cloudFormationClient.get_paginator("list_stack_set_operation_results")
-                    stackset_iterator = cloudFormationPaginator.paginate(
-                        StackSetName=stackSetName,
-                        OperationId=params['OperationId']
-                    )
-                    
-                    laceworkApiCredentials = os.environ['laceworkApiCredentials']
-                    laceworkAccName = os.environ['laceworkAcctName']
-                    laceworkAccessToken = get_access_token(laceworkApiCredentials)
-                    
-                    if laceworkAccessKey:
-                        for page in stackset_iterator:
-                            if "Summaries" in page:
-                                for operation in page['Summaries']:
-                                    if operation['Status'] in ("SUCCEEDED"):
-                                        targetAccount = operation['Account']
-                                        logger.info("call the correct add account here")
-                    
-                elif stackset_status['StackSetOperation']['Status'] in ['FAILED","STOPPED']:
-                    logger.warning("Stackset operation failed/stopped")
-                    messageBody = {}
-                    messageBody[stackSetName] = {"OperationId": params['OperationId']}
-                    try:
-                        sqsResponse = sqsClient.send_message(
-                            QueueUrl=laceworkDLQ,
-                            MessageBody=json.dumps(messageBody))
-                        logger.info("Sent to DLQ: {}".format(sqsResponse))
-                    except Exception as sqsException:
-                        logger.error("Failed to send to DLQ: {}".format(sqsException))
-        
-        except Exception as e:
-            logger.error(e)
-
-def get_access_token(secret_arn):
-    logger.info("account.get_access_token called.")
-    secretClient = session.client("secretsmanager")
-    try:
-        secret_response = secretClient.get_secret_value(
-            SecretId=secret_arn
-        )
-        if "SecretString" in secret_response:
-            token = json.loads(secret_response['SecretString'])['AccessToken']
-            expiry = json.loads(secret_response['SecretString'])['TokenExpiry']
-            if expiry - time.time() < 3600 :
-                keyId = json.loads(secret_response['SecretString'])['AccessKeyId']
-                messageBody = {}
-                messageBody[keyId] = {"Refresh request"}
-                try:
-                    snsResponse = snsClient.publish(
-                        TopicArn=laceworkAuthSNS,
-                        Message = json.dumps(messageBody))
-
-                    logger.info("Queued for token refresh: {}".format(snsResponse))
-                except Exception as snsException:
-                    logger.error("Failed to send queue for token refresh: {}".format(snsException))
-            return token
-    
-    except Exception as e:
-        logger.error("Get Secret Failed: " + str(e))
-    
-def lacework_add_cloud_account_for_cfg(aws_account_id, access_key, lacework_account_id, lacework_integration_list):
-    logger.info("account.lacework_add_cloud_account_for_cfg")
-
-def lacework_add_cloud_account_for_ct_cfg(aws_account_id, access_key, lacework_account_id, lacework_integration_list):
-    logger.info("account.lacework_add_cloud_account_for_ct_cfg")
-
 
 def lambda_handler(event, context):
     logger.info("account.lambda_handler called.")
@@ -141,3 +35,109 @@ def lambda_handler(event, context):
             logger.error("Event not processed.")
     except Exception as e:
         logger.error(e)
+
+
+def message_processing(messages):
+    logger.info("account.message_processing called.")
+    target_stackset = {}
+    for message in messages:
+        payload = json.loads(message['Sns']['Message'])
+        stackset_check(payload)
+
+
+def stackset_check(messages):
+    logger.info("account.stackset_check called.")
+    cloud_formation_client = session.client("cloudformation")
+    sqs_client = session.client("sqs")
+    sns_client = session.client("sns")
+    lacework_account_sns = os.environ['lacework_account_sns']
+    lacework_dlq = os.environ['lacework_dlq']
+
+    for stack_set_name, params in messages.items():
+        logger.info("Checking stack set instances: {} {}".format(stack_set_name, params['OperationId']))
+        try:
+            stackset_status = cloud_formation_client.describe_stack_set_operation(
+                StackSetName=stack_set_name,
+                OperationId=params['OperationId']
+            )
+            if "StackSetOperation" in stackset_status:
+                if stackset_status['StackSetOperation']['Status'] in ["RUNNING", "STOPPING", "QUEUED"]:
+                    logger.info("Stack set operation still running")
+                    message_body = {stack_set_name: {"OperationId": params['OperationId']}}
+                    try:
+                        logger.info("Sleep and wait for 20 seconds")
+                        time.sleep(20)
+                        sns_response = sns_client.publish(
+                            TopicArn=lacework_account_sns,
+                            Message=json.dumps(message_body))
+
+                        logger.info("Re-queued for account creation: {}".format(sns_response))
+                    except Exception as sns_exception:
+                        logger.error("Failed to send queue for account creation: {}".format(sns_exception))
+
+                elif stackset_status['StackSetOperation']['Status'] in ['SUCCEEDED']:
+                    logger.info("Start account creation")
+                    cloud_formation_paginator = cloud_formation_client.get_paginator("list_stack_set_operation_results")
+                    stackset_iterator = cloud_formation_paginator.paginate(
+                        StackSetName=stack_set_name,
+                        OperationId=params['OperationId']
+                    )
+
+                    lacework_api_credentials = os.environ['lacework_api_credentials']
+                    lacework_account_name = os.environ['lacework_account_name']
+                    token = get_access_token(lacework_api_credentials)
+
+                    if token:
+                        for page in stackset_iterator:
+                            if "Summaries" in page:
+                                for operation in page['Summaries']:
+                                    if operation['Status'] in ("SUCCEEDED"):
+                                        target_account = operation['Account']
+                                        logger.info("call the correct add account here")
+
+                elif stackset_status['StackSetOperation']['Status'] in ['FAILED","STOPPED']:
+                    logger.warning("Stackset operation failed/stopped")
+                    message_body = {stack_set_name: {"OperationId": params['OperationId']}}
+                    try:
+                        sqs_response = sqs_client.send_message(
+                            QueueUrl=lacework_dlq,
+                            MessageBody=json.dumps(message_body))
+                        logger.info("Sent to DLQ: {}".format(sqs_response))
+                    except Exception as sqs_exception:
+                        logger.error("Failed to send to DLQ: {}".format(sqs_exception))
+
+        except Exception as e:
+            logger.error(
+                "Error processing stack set instance: {} {} Exception {}".format(stack_set_name, params['OperationId'],
+                                                                                 e))
+
+
+def get_access_token(lacework_api_credentials):
+    logger.info("stackset.get_access_token called.")
+    lacework_api_credentials = os.environ['lacework_api_credentials']
+
+    secret_client = session.client('secretsmanager')
+    try:
+        secret_response = secret_client.get_secret_value(
+            SecretId=lacework_api_credentials
+        )
+        if 'SecretString' not in secret_response:
+            logger.error("SecretString not found in {}".format(lacework_api_credentials))
+            return None
+
+        secret_string_dict = json.loads(secret_response['SecretString'])
+        access_token = secret_string_dict['AccessToken']
+
+        return access_token
+
+    except Exception as e:
+        logger.error("Get access token error: {}.".format(e))
+        return None
+
+
+def lacework_add_cloud_account_for_cfg(aws_account_id, access_token, lacework_account_id, lacework_integration_list):
+    logger.info("account.lacework_add_cloud_account_for_cfg")
+
+
+def lacework_add_cloud_account_for_ct_cfg(aws_account_id, access_token, lacework_account_id, lacework_integration_list):
+    logger.info("account.lacework_add_cloud_account_for_ct_cfg")

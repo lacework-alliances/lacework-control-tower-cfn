@@ -52,7 +52,7 @@ def lambda_handler(event, context):
         helper.init_failure(e)
 
 
-@helper.create  # crhelper methods to create the stack set if needed and create stack instances
+@helper.create
 @helper.update
 def create(event, context):
     logger.info("setup.create called.")
@@ -67,7 +67,7 @@ def create(event, context):
 
         access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials)
         if access_token is None:
-            message = "Unable to get Lacework access token."
+            message = "Unable to get Lacework access token. Failed setup."
             logger.error(message)
             send_cfn_response(event, context, FAILED, {"Message": message})
             return None
@@ -105,12 +105,6 @@ def create(event, context):
                     "ResolvedValue": "string"
                 },
                 {
-                    "ParameterKey": "AccessToken",
-                    "ParameterValue": access_token,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
                     "ParameterKey": "CreateTrail",
                     "ParameterValue": create_trail,
                     "UsePreviousValue": False,
@@ -143,7 +137,7 @@ def create(event, context):
             ExecutionRoleName="AWSControlTowerExecution")
 
         try:
-            result = cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
+            cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
             first_launch = True
             logger.info("StackSet {} deployed".format(stack_set_name))
         except cloud_formation_client.exceptions.StackSetNotFoundException as describeException:
@@ -309,7 +303,7 @@ def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
         '''.format(access_key_id)
         logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
 
-        response = requests.post("https://"+lacework_account_name + ".lacework.net/api/v2/access/tokens",
+        response = requests.post("https://" + lacework_account_name + ".lacework.net/api/v2/access/tokens",
                                  headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
                                  verify=True, data=request_payload)
         logger.info('API response code : {}'.format(response.status_code))
