@@ -467,7 +467,6 @@ Resources:
       Handler: stackset.lambda_handler
       Runtime: python3.7
       Timeout: 120
-      ReservedConcurrentExecutions: 1
       Environment:
         Variables:
           stack_set_name: !Ref StackSetName
@@ -541,7 +540,6 @@ Resources:
       Handler: account.lambda_handler
       Runtime: python3.7
       Timeout: 120
-      ReservedConcurrentExecutions: 5
       Environment:
         Variables:
           lacework_account_name: !Ref LaceworkAccountName
@@ -586,7 +584,6 @@ Resources:
       Handler: auth.lambda_handler
       Runtime: python3.7
       Timeout: 120
-      ReservedConcurrentExecutions: 5
       Environment:
         Variables:
           lacework_account_name: !Ref LaceworkAccountName
