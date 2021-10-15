@@ -86,7 +86,6 @@ def cfn_stack_set_processing(messages):
     cloud_formation_client = session.client("cloudformation")
     sns_client = session.client("sns")
     lacework_stack_set_sns = os.environ['lacework_stack_set_sns']
-    lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
     access_token = get_access_token(lacework_api_credentials)
 
@@ -132,15 +131,6 @@ def cfn_stack_set_processing(messages):
                                                                          ])
 
                 logger.info("stack_set instance created {}".format(response))
-                message_body = {stack_set_name: {"OperationId": response['OperationId']}}
-                try:
-                    sns_response = sns_client.publish(
-                        TopicArn=lacework_account_sns,
-                        Message=json.dumps(message_body))
-
-                    logger.info("Queued for registration: {}".format(sns_response))
-                except Exception as snsException:
-                    logger.error("Failed to send queue for account creation: {}".format(snsException))
             else:
                 logger.warning("Existing stack_set operations still running")
                 message_body = {stack_set_name: messages[stack_set_name]}
@@ -152,12 +142,12 @@ def cfn_stack_set_processing(messages):
                         Message=json.dumps(message_body))
 
                     logger.info("Re-queued for stack_set instance creation: {}".format(sns_response))
-                except Exception as snsException:
-                    logger.error("Failed to send queue for stack_set instance creation: {}".format(snsException))
+                except Exception as sns_exception:
+                    logger.error("Failed to send queue for stack_set instance creation: {}".format(sns_exception))
 
-        except cloud_formation_client.exceptions.stack_setNotFoundException as describeException:
-            logger.error("Exception getting stack set, {}".format(describeException))
-            raise describeException
+        except cloud_formation_client.exceptions.stack_setNotFoundException as describe_exception:
+            logger.error("Exception getting stack set, {}".format(describe_exception))
+            raise describe_exception
 
 
 def list_stack_instance_by_account_region(target_session, stack_set_name, account_id, region):

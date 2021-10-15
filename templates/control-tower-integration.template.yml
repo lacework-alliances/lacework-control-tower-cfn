@@ -520,10 +520,12 @@ Resources:
           eventName:
           - CreateManagedAccount
           - UpdateManagedAccount
+          eventSource:
+          - controltower.amazonaws.com
         detail-type:
         - AWS Service Event via CloudTrail
         source:
-        - aws.controltower # aws.controltower
+        - aws.controltower
       Name: LaceworkControlTowerEvents
       State: ENABLED
       Targets:
