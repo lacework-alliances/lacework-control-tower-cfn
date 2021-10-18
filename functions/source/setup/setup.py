@@ -339,8 +339,7 @@ def setup_cloudtrail(lacework_account_name, region_name, log_account_name, log_a
     except Exception as describe_exception:
         logger.info("Stack set {} does not exist, creating it now. {}".format(audit_stack_set_name, describe_exception))
         try:
-            audit_role = "arn:aws:iam::" + audit_account_id + ":role/service-role"
-            "/AWSControlTowerStackSetRole"
+            audit_role = "arn:aws:iam::" + audit_account_id + ":role/service-role/AWSControlTowerStackSetRole"
             logger.info("Using role {} to create stack {}".format(audit_role, audit_stack_set_name))
             audit_stack_set_result = cloudformation_client.create_stack_set(
                 StackSetName=audit_stack_set_name,
@@ -386,8 +385,7 @@ def setup_cloudtrail(lacework_account_name, region_name, log_account_name, log_a
     except Exception as describe_exception:
         logger.info("Stack set {} does not exist, creating it now. {}".format(log_stack_set_name, describe_exception))
         try:
-            log_role = "arn:aws:iam::" + log_account_id + ":role/service-role"
-            "/AWSControlTowerStackSetRole"
+            log_role = "arn:aws:iam::" + log_account_id + ":role/service-role/AWSControlTowerStackSetRole"
             logger.info("Using role {} to create stack {}".format(log_role, log_stack_set_name))
             log_stack_set_result = cloudformation_client.create_stack_set(
                 StackName=log_stack_set_name,
@@ -449,8 +447,7 @@ def setup_config(stack_set_name, lacework_account_name, lacework_account_sns, ex
         logger.info("Stack set {} already exist".format(stack_set_name))
     except Exception as describe_exception:
         logger.info("Stack set {} does not exist, creating it now. {}".format(stack_set_name, describe_exception))
-        management_role = "arn:aws:iam::" + management_account_id + ":role/service-role"
-        "/AWSControlTowerStackSetRole"
+        management_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
         logger.info("Using role {} to create stack {}".format(management_role, stack_set_name))
         cloudformation_client.create_stack_set(
             StackSetName=stack_set_name,
