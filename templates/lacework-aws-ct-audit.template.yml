@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lacework AWS CloudTrail and Config Security Audit Integration (Audit Account)
+Parameters:
+  ResourceNamePrefix:
+    Description: >-
+      Names of resources created by the stack will be prefixed with this value
+      to ensure uniqueness.
+    Type: String
+    Default: customerdemo
+    MinLength: '1'
+    MaxLength: '45'
+    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    ConstraintDescription: >-
+      Invalid resource name prefix value.  Must match pattern
+      ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
+  ExistingTrailTopicArn:
+    Description: Provide the ARN of the SNS topic for your existing trail setup.
+    Default: ''
+    Type: String
+    MaxLength: '256'
+Resources:
+  LaceworkCWSSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !GetAtt
+        - LaceworkCWSQueue
+        - Arn
+      Protocol: sqs
+      TopicArn:
+        - !Ref ExistingTrailTopicArn
+  LaceworkCWSQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['',[!Ref ResourceNamePrefix, "-laceworkcws" ]]
+  LaceworkCWSQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AwsSnsAccess
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - 'sqs:SendMessage'
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Ref ExistingTrailTopicArn
+      Queues:
+        - !Ref LaceworkCWSQueue

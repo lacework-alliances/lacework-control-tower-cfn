@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lacework AWS Config Security Audit Integration (Member Accounts)
+Parameters:
+  ResourceNamePrefix:
+    Default: customerdemo
+    Description: >-
+      Names of resources created by the stack will be prefixed with this value
+      to ensure uniqueness.
+    Type: String
+    MinLength: '1'
+    MaxLength: '45'
+    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    ConstraintDescription: >-
+      Invalid resource name prefix.  Must match pattern
+      ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
+  ExternalID:
+    Default: 4CEBE3B
+    Description: >-
+      The cross-account access role created by the stack will use this value for
+      its ExternalID.
+    Type: String
+    MinLength: '2'
+    MaxLength: '1224'
+  AccessToken:
+    Default: 4CEBE3B
+    Description: >-
+      Access token used by this stack template.
+    Type: String
+    MinLength: '2'
+    MaxLength: '1224'
+Resources:
+  LaceworkCrossAccountAccessRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join
+        - '-'
+        - - !Ref ResourceNamePrefix
+          - laceworkcwsrole-sa
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              AWS: !Join
+                - ''
+                - - 'arn:aws:iam::'
+                  - '434813966438'
+                  - ':root'
+            Condition:
+              StringEquals:
+                'sts:ExternalId': !Ref ExternalID
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/SecurityAudit'
+  LaceworkSnsCustomResource:
+    Type: 'Custom::LaceworkSnsCustomResource'
+    DependsOn:
+      - LaceworkCrossAccountAccessRole
+    Properties:
+      Type: AWS_CFG
+      ServiceToken: !Join
+        - ''
+        - - 'arn:aws:sns:'
+          - !Ref 'AWS::Region'
+          - ':434813966438:prodn-customer-cloudformation'
+      IntegrationName: !Ref 'AWS::StackName'
+      RoleArn: !GetAtt
+        - LaceworkCrossAccountAccessRole
+        - Arn
+      ExternalId: !Ref ExternalID
+      ApiToken: !Ref AccessToken
+      Account: !Ref ResourceNamePrefix
+      TemplateVersion: '1.0'
+      AWSAccountId: !Ref 'AWS::AccountId'
+Outputs:
+  ExternalID:
+    Description: External ID to share with Lacework AWS Config Security Audit
+    Value: !Ref ExternalID
+  RoleARN:
+    Description: Cross account Role ARN for Lacework AWS Config Security Audit
+    Value: !GetAtt
+      - LaceworkCrossAccountAccessRole
+      - Arn
+  TemplateVersion:
+    Description: Template version
+    Value: '1.0'

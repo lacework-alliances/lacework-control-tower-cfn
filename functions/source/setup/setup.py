@@ -57,123 +57,45 @@ def lambda_handler(event, context):
 def create(event, context):
     logger.info("setup.create called.")
     logger.info(json.dumps(event))
-    first_launch = False
-    try:
-        cloud_formation_client = session.client("cloudformation")
-        stack_set_name = os.environ['stack_set_name']
-        stack_set_url = os.environ['stack_set_url']
-        lacework_account_name = os.environ['lacework_account_name']
-        lacework_api_credentials = os.environ['lacework_api_credentials']
 
-        access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials)
-        if access_token is None:
-            message = "Unable to get Lacework access token. Failed setup."
-            logger.error(message)
-            send_cfn_response(event, context, FAILED, {"Message": message})
-            return None
+    lacework_account_name = os.environ['lacework_account_name']
+    lacework_api_credentials = os.environ['lacework_api_credentials']
 
-        lacework_stack_set_sns = os.environ['lacework_stack_set_sns']
-        create_trail = os.environ['create_trail']
-        trail_log_prefix = os.environ['trail_log_prefix']
-        existing_trail_s3_bucket_name = os.environ['existing_trail_s3_bucket_name']
-        existing_trail_topic_arn = os.environ['existing_trail_topic_arn']
-        management_account_id = context.invoked_function_arn.split(":")[4]
-        region_name = context.invoked_function_arn.split(":")[3]
-        external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-        cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
-        logger.info("Stack set {} already exist".format(stack_set_name))
-        helper.Data.update({"result": stack_set_name})
-
-    except Exception as describeException:
-        logger.info("Stack set {} does not exist, creating it now.".format(stack_set_name))
-        cloud_formation_client.create_stack_set(
-            StackSetName=stack_set_name,
-            Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
-                        "and automated AWS security monitoring.",
-            TemplateURL=stack_set_url,
-            Parameters=[
-                {
-                    "ParameterKey": "ResourceNamePrefix",
-                    "ParameterValue": lacework_account_name,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "ExternalID",
-                    "ParameterValue": external_id,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "CreateTrail",
-                    "ParameterValue": create_trail,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "NewTrailLogFilePrefix",
-                    "ParameterValue": trail_log_prefix,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "ExistingTrailBucketName",
-                    "ParameterValue": existing_trail_s3_bucket_name,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "ExistingTrailTopicArn",
-                    "ParameterValue": existing_trail_topic_arn,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                }
-            ],
-            Capabilities=[
-                "CAPABILITY_NAMED_IAM"
-            ],
-            AdministrationRoleARN="arn:aws:iam::" + management_account_id + ":role/service-role"
-                                                                            "/AWSControlTowerStackSetRole",
-            ExecutionRoleName="AWSControlTowerExecution")
-
-        try:
-            cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
-            first_launch = True
-            logger.info("StackSet {} deployed".format(stack_set_name))
-        except cloud_formation_client.exceptions.StackSetNotFoundException as describeException:
-            message = "Exception getting new stack set, {}".format(describeException)
-            logger.error(message)
-            send_cfn_response(event, context, FAILED, {"Message": message})
-            raise describeException
-
-        try:
-            if first_launch and len(os.environ['account_list']) > 0:
-                logger.info("New accounts : {}".format(os.environ['account_list']))
-                account_list = os.environ['account_list'].split(",")
-                sns_client = session.client("sns")
-                message_body = {stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
-                try:
-                    sns_response = sns_client.publish(
-                        TopicArn=lacework_stack_set_sns,
-                        Message=json.dumps(message_body))
-
-                    logger.info("Queued for stackset instance creation: {}".format(sns_response))
-                except Exception as snsException:
-                    logger.error("Failed to send queue for stackset instance creation: {}".format(snsException))
-            else:
-                logger.info("No additional stackset instances requested")
-        except Exception as create_exception:
-            message = "Exception creating stack instance with {}".format(create_exception)
-            logger.error(message)
-            send_cfn_response(event, context, FAILED, {"Message": message})
-            raise create_exception
-
-        helper.Data.update({"result": stack_set_name})
-
-    if not helper.Data.get("result"):
-        message = "Error occurred during solution setup"
+    access_token = setup_initial_access_token(lacework_account_name, lacework_api_credentials)
+    if access_token is None:
+        message = "Unable to get Lacework access token. Failed setup."
+        logger.error(message)
         send_cfn_response(event, context, FAILED, {"Message": message})
-        raise ValueError("Error occurred during solution setup")
+        return None
+
+    stack_set_name = os.environ['stack_set_name']
+    lacework_account_sns = os.environ['lacework_account_sns']
+    capability_type = os.environ['capability_type']
+    existing_accounts = os.environ['existing_accounts']
+    log_account_name = os.environ['log_account_name']
+    log_account_template = os.environ['log_account_template']
+    audit_account_name = os.environ['audit_account_name']
+    audit_account_template = os.environ['audit_account_template']
+    member_account_template = os.environ['member_account_template']
+
+    management_account_id = context.invoked_function_arn.split(":")[4]
+    region_name = context.invoked_function_arn.split(":")[3]
+    external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+
+    try:
+        if capability_type == "CloudTrail+Config":
+            setup_cloudtrail(lacework_account_name, region_name, log_account_name, log_account_template,
+                             audit_account_name,
+                             audit_account_template, access_token, external_id)
+
+        setup_config(stack_set_name, lacework_account_name, lacework_account_sns, existing_accounts,
+                     member_account_template,
+                     management_account_id,
+                     region_name, access_token, external_id)
+    except Exception as setup_exception:
+        logger.error("Setup failed {}.".format(setup_exception))
+        send_cfn_response(event, context, FAILED, {})
+        return None
 
     send_cfn_response(event, context, SUCCESS, {})
     return None
@@ -186,14 +108,14 @@ def delete(event, context):
     delete_sleep_time = 30
     try:
         stack_set_name = os.environ['stack_set_name']
-        stack_set_url = os.environ['stack_set_url']
-        management_account_id = context.invoked_function_arn.split(":")[4]
-        cloud_formation_client = session.client("cloudformation")
-        region_name = context.invoked_function_arn.split(":")[3]
-        cloud_formation_client.describe_stack_set(StackSetName=stack_set_name)
+        lacework_account_name = os.environ['lacework_account_name']
+        log_account_name = os.environ['log_account_name']
+        audit_account_name = os.environ['audit_account_name']
+        cloudformation_client = session.client("cloudformation")
+        cloudformation_client.describe_stack_set(StackSetName=stack_set_name)
         logger.info("Stack set {} exist".format(stack_set_name))
 
-        paginator = cloud_formation_client.get_paginator("list_stack_instances")
+        paginator = cloudformation_client.get_paginator("list_stack_instances")
         page_iterator = paginator.paginate(StackSetName=stack_set_name)
         stack_set_list = []
         account_list = []
@@ -211,36 +133,67 @@ def delete(event, context):
 
         try:
             if len(account_list) > 0:
-                response = cloud_formation_client.delete_stack_instances(
+                response = cloudformation_client.delete_stack_instances(
                     StackSetName=stack_set_name,
                     Accounts=account_list,
                     Regions=region_list,
                     RetainStacks=False)
                 logger.info(response)
 
-                status = cloud_formation_client.describe_stack_set_operation(
+                status = cloudformation_client.describe_stack_set_operation(
                     StackSetName=stack_set_name,
                     OperationId=response['OperationId'])
 
                 while status['StackSetOperation']['Status'] == "RUNNING" and delete_wait_time > 0:
                     time.sleep(delete_sleep_time)
                     delete_wait_time = delete_wait_time - delete_sleep_time
-                    status = cloud_formation_client.describe_stack_set_operation(
+                    status = cloudformation_client.describe_stack_set_operation(
                         StackSetName=stack_set_name,
                         OperationId=response['OperationId'])
                     logger.info("StackSet instance delete status {}".format(status))
 
-            try:
-                response = cloud_formation_client.delete_stack_set(StackSetName=stack_set_name)
-                logger.info("StackSet template delete status {}".format(response))
-            except Exception as stackSetException:
-                logger.warning("Problem occurred while deleting, StackSet still exist : {}".format(stackSetException))
+        except Exception as stack_instance_exception:
+            logger.warning("Problem occurred while deleting, StackSet {} instances still exist : {}"
+                           .format(stack_set_name, stack_instance_exception))
 
-        except Exception as describeException:
-            logger.error(describeException)
+        try:
+            response = cloudformation_client.delete_stack_set(StackSetName=stack_set_name)
+            logger.info("StackSet {} template delete status {}".format(stack_set_name, response))
+        except Exception as stack_set_exception:
+            logger.warning("Problem occurred while deleting, StackSet {} still exist : {}".format(stack_set_name,
+                                                                                                  stack_set_exception))
 
-    except Exception as describeException:
-        logger.error(describeException)
+        try:
+            audit_account_id = get_account_id_by_name(audit_account_name)
+            if audit_account_id is not None:
+                cloudformation_client.delete_stack(
+                    StackName="Lacework-CloudTrail-Audit-Account-Setup-" + lacework_account_name,
+                    RoleARN="arn:aws:iam::" + audit_account_id + ":role/AWSControlTowerExecution"
+                )
+            else:
+                logger.warning("Audit account with name {} was not found.")
+
+        except Exception as delete_audit_stack_exception:
+            logger.warning(
+                "Problem occurred while deleting, Lacework-CloudTrail-Audit-Account-Setup still exist : {}".format(
+                    delete_audit_stack_exception))
+
+        try:
+            log_account_id = get_account_id_by_name(log_account_name)
+            if log_account_id is not None:
+                cloudformation_client.delete_stack(
+                    StackName="Lacework-CloudTrail-Log-Account-Setup-" + lacework_account_name,
+                    RoleARN="arn:aws:iam::" + log_account_id + ":role/AWSControlTowerExecution"
+                )
+            else:
+                logger.warning("Log account with name {} was not found.")
+        except Exception as delete_log_stack_exception:
+            logger.warning(
+                "Problem occurred while deleting, Lacework-CloudTrail-Log-Account-Setup still exist : {}".format(
+                    delete_log_stack_exception))
+
+    except Exception as describe_exception:
+        logger.error(describe_exception)
         return None
 
     send_cfn_response(event, context, SUCCESS, {})
@@ -282,6 +235,7 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
 
 
 def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
+    logger.info("setup.setup_initial_access_token called.")
     secret_client = session.client('secretsmanager')
     try:
         secret_response = secret_client.get_secret_value(
@@ -315,6 +269,7 @@ def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
             secret_string_dict['AccessToken'] = token
             secret_string_dict['TokenExpiry'] = expires_at
             secret_client.update_secret(SecretId=lacework_api_credentials, SecretString=json.dumps(secret_string_dict))
+            logger.info("new access token save to secrets manager.")
             return token
         else:
             logger.error("Generate access key failure {} {}".format(response.status_code, response.text))
@@ -322,3 +277,190 @@ def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
     except Exception as e:
         logger.error("Error setting up initial access token {}".format(e))
         return None
+
+
+def setup_cloudtrail(lacework_account_name, region_name, log_account_name, log_account_template,
+                     audit_account_name, audit_account_template, access_token, external_id):
+    logger.info("setup.setup_cloudtrail called.")
+
+    log_account_id = get_account_id_by_name(log_account_name)
+    if log_account_id is None:
+        logger.error("Log account with name {} was not found.")
+        raise Exception
+
+    audit_account_id = get_account_id_by_name(audit_account_name)
+    if audit_account_id is None:
+        logger.error("Audit account with name {} was not found.")
+        raise Exception
+
+    try:
+        cloudtrail_client = boto3.client('cloudtrail')
+        trail = cloudtrail_client.get_trail(
+            Name="aws-controltower-BaselineCloudTrail"
+        )
+        cloudtrail_s3_bucket = trail['Trail']['S3BucketName']
+        cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+    except Exception as trail_exception:
+        logger.error("Error getting cloudtrail aws-controltower-BaselineCloudTrail {}.".format(trail_exception))
+        raise trail_exception
+
+    sqs_queue_url = "https://sqs." + region_name + ".amazonaws.com/" + audit_account_id + "/" + lacework_account_name + "-laceworkcws"
+
+    cloudformation_client = session.client("cloudformation")
+
+    try:
+        cloudformation_client.create_stack(
+            StackName="Lacework-CloudTrail-Audit-Account-Setup-" + lacework_account_name,
+            TemplateURL=audit_account_template,
+            Parameters=[
+                {
+                    "ParameterKey": "ResourceNamePrefix",
+                    "ParameterValue": lacework_account_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExistingTrailTopicArn",
+                    "ParameterValue": cloudtrail_sns_topic,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                }
+            ],
+            Capabilities=[
+                "CAPABILITY_NAMED_IAM"
+            ],
+            RoleARN="arn:aws:iam::" + audit_account_id + ":role/AWSControlTowerExecution")
+    except Exception as create_exception:
+        logger.error("Error creating audit account stack {}.".format(create_exception))
+        raise create_exception
+
+    try:
+        cloudformation_client.create_stack(
+            StackName="Lacework-CloudTrail-Log-Account-Setup-" + lacework_account_name,
+            TemplateURL=log_account_template,
+            Parameters=[
+                {
+                    "ParameterKey": "ResourceNamePrefix",
+                    "ParameterValue": lacework_account_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExternalID",
+                    "ParameterValue": external_id,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "AccessToken",
+                    "ParameterValue": access_token,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExistingTrailBucketName",
+                    "ParameterValue": cloudtrail_s3_bucket,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "SqsQueueUrl",
+                    "ParameterValue": sqs_queue_url,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                }
+            ],
+            Capabilities=[
+                "CAPABILITY_NAMED_IAM"
+            ],
+            RoleARN="arn:aws:iam::" + log_account_id + ":role/AWSControlTowerExecution")
+    except Exception as create_exception:
+        logger.error("Error creating log account stack {}.".format(create_exception))
+        raise create_exception
+
+
+def setup_config(stack_set_name, lacework_account_name, lacework_account_sns, existing_accounts,
+                 member_account_template,
+                 management_account_id, region_name, external_id):
+    logger.info("setup.setup_config called.")
+    cloudformation_client = session.client("cloudformation")
+    try:
+        cloudformation_client.describe_stack_set(StackSetName=stack_set_name)
+        logger.info("Stack set {} already exist".format(stack_set_name))
+    except Exception as describe_exception:
+        logger.info("Stack set {} does not exist, creating it now. {}".format(stack_set_name, describe_exception))
+
+        cloudformation_client.create_stack_set(
+            StackSetName=stack_set_name,
+            Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
+                        "and automated AWS security monitoring.",
+            TemplateURL=member_account_template,
+            Parameters=[
+                {
+                    "ParameterKey": "ResourceNamePrefix",
+                    "ParameterValue": lacework_account_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExternalID",
+                    "ParameterValue": external_id,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                }
+            ],
+            Capabilities=[
+                "CAPABILITY_NAMED_IAM"
+            ],
+            AdministrationRoleARN="arn:aws:iam::" + management_account_id + ":role/service-role"
+                                                                            "/AWSControlTowerStackSetRole",
+            ExecutionRoleName="AWSControlTowerExecution")
+
+        try:
+            cloudformation_client.describe_stack_set(StackSetName=stack_set_name)
+            logger.info("StackSet {} deployed".format(stack_set_name))
+        except cloudformation_client.exceptions.StackSetNotFoundException as describe_exception:
+            message = "Exception getting new stack set, {}".format(describe_exception)
+            logger.error(message)
+            raise describe_exception
+
+        if existing_accounts == "Yes":
+            try:
+                account_list = []
+                paginator = cloudformation_client.get_paginator('list_stack_instances')
+                page_iterator = paginator.paginate(StackSetName=stack_set_name)
+                for page in page_iterator:
+                    for inst in page['Summaries']:
+                        account_list.append(inst['Account'])
+
+                if len(account_list) > 0:
+                    logger.info("New accounts : {}".format(account_list))
+                    sns_client = session.client("sns")
+                    message_body = {stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
+                    try:
+                        sns_response = sns_client.publish(
+                            TopicArn=lacework_account_sns,
+                            Message=json.dumps(message_body))
+
+                        logger.info("Queued for stackset instance creation: {}".format(sns_response))
+                    except Exception as sns_exception:
+                        logger.error("Failed to send queue for stackset instance creation: {}".format(sns_exception))
+                else:
+                    logger.info("No additional stackset instances requested")
+            except Exception as create_exception:
+                message = "Exception creating stack instance with {}".format(create_exception)
+                logger.error(message)
+                raise create_exception
+
+
+def get_account_id_by_name(name):
+    logger.info("setup.get_account_id_by_name called.")
+    org_client = session.client('organizations')
+    paginator = org_client.get_paginator("list_accounts")
+    page_iterator = paginator.paginate()
+    for page in page_iterator:
+        for acct in page['Accounts']:
+            if acct['Name'] == name:
+                return acct['Id']
+
+    return None
