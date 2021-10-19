@@ -35,12 +35,19 @@ Parameters:
     Default: ''
     Type: String
     MaxLength: '128'
+  KMSKeyIdentifierARN:
+    Description: Provide the ARN of the KMS key for decrypting S3 log files if necessary.
+    Default: ''
+    Type: String
+    MaxLength: '256'
   SqsQueueUrl:
     Type: String
     Description: The SQS Queue URL.
     AllowedPattern: '^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?'
     ConstraintDescription: Contains a URL/URI pattern only
     Default: "https://sqs.<region>.amazonaws.com/<account>/<name>"
+Conditions:
+  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierARN, '']]
 Resources:
   LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
@@ -76,15 +83,7 @@ Resources:
             Action:
               - 's3:ListBucket'
             Effect: Allow
-            Resource:
-              - !Join
-                - ''
-                - - 'arn:aws:s3:::'
-                  - !If
-                    - UseExistingTrail
-                    - !Ref ExistingTrailBucketName
-                    - !Ref LaceworkCWSBucket
-                  - /*AWSLogs/
+            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
             Condition:
               StringLike:
                 's3:prefix':
@@ -93,7 +92,7 @@ Resources:
             Action:
               - 's3:Get*'
             Effect: Allow
-            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]
+            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
           - Sid: GetAccountAlias
             Action:
               - 'iam:ListAccountAliases'
@@ -117,6 +116,21 @@ Resources:
               - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSDecryptPolicy:
+    Type: 'AWS::IAM::Policy'
+    Condition: UseKMSDecrypt
+    Properties:
+      PolicyName: LaceworkCWSDecryptPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DecryptLogFiles
+            Action:
+              - 'kms:Decrypt'
+            Effect: Allow
+            Resource: !Ref KMSKeyIdentifierARN
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkSnsCustomResource:
@@ -154,7 +168,7 @@ Outputs:
     Value: !Ref ExternalID
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
-    Value: !Ref LaceworkCWSQueue
+    Value: !Ref SqsQueueUrl
   TemplateVersion:
     Description: Template version
     Value: '1.1'

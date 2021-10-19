@@ -179,7 +179,7 @@ def list_stack_instance_by_account_region(target_session, stack_set_name, accoun
 
 
 def get_access_token(lacework_api_credentials):
-    logger.info("stackset.get_access_token called.")
+    logger.info("account.get_access_token called.")
     lacework_api_credentials = os.environ['lacework_api_credentials']
 
     secret_client = session.client('secretsmanager')

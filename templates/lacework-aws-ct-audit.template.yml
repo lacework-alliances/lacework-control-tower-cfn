@@ -18,6 +18,21 @@ Parameters:
     Default: ''
     Type: String
     MaxLength: '256'
+  ExternalID:
+    Default: 4CEBE3B
+    Description: >-
+      The cross-account access role created by the stack will use this value for
+      its ExternalID.
+    Type: String
+    MinLength: '2'
+    MaxLength: '1224'
+  AccessToken:
+    Default: 4CEBE3B
+    Description: >-
+      Access token used by this stack template.
+    Type: String
+    MinLength: '2'
+    MaxLength: '1224'
 Resources:
   LaceworkCWSSubscription:
     Type: 'AWS::SNS::Subscription'
@@ -26,12 +41,71 @@ Resources:
         - LaceworkCWSQueue
         - Arn
       Protocol: sqs
-      TopicArn:
-        - !Ref ExistingTrailTopicArn
+      TopicArn: !Ref ExistingTrailTopicArn
   LaceworkCWSQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
       QueueName: !Join ['',[!Ref ResourceNamePrefix, "-laceworkcws" ]]
+  LaceworkCWSSACrossAccountAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Join:
+          - ''
+          - - Ref: ResourceNamePrefix
+            - "-laceworkcwssarole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ''
+                  - - 'arn:aws:iam::'
+                    - '434813966438'
+                    - ":root"
+            Condition:
+              StringEquals:
+                sts:ExternalId:
+                  Ref: ExternalID
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/SecurityAudit
+  LaceworkCWSPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LaceworkCWSPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ConsumeNotifications
+            Action:
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:ReceiveMessage
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - LaceworkCWSQueue
+                  - Arn
+          - Sid: GetAccountAlias
+            Action:
+              - iam:ListAccountAliases
+            Effect: Allow
+            Resource: "*"
+          - Sid: Debug
+            Action:
+              - sns:GetSubscriptionAttributes
+              - sns:GetTopicAttributes
+              - sns:ListSubscriptions
+              - sns:ListSubscriptionsByTopic
+              - sns:ListTopics
+            Effect: Allow
+            Resource: "*"
+      Roles:
+        - Ref: LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSQueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:
@@ -49,3 +123,42 @@ Resources:
                 'aws:SourceArn': !Ref ExistingTrailTopicArn
       Queues:
         - !Ref LaceworkCWSQueue
+  LaceworkSnsCustomResource:
+    Type: 'Custom::LaceworkSnsCustomResource'
+    DependsOn:
+      - LaceworkCWSPolicy
+      - LaceworkCWSSACrossAccountAccessRole
+    Properties:
+      Type: AWS_CT_CFG
+      ServiceToken: !Join
+        - ''
+        - - 'arn:aws:sns:'
+          - !Ref 'AWS::Region'
+          - ':434813966438:prodn-customer-cloudformation'
+      IntegrationName: !Ref 'AWS::StackName'
+      RoleArn: !GetAtt
+        - LaceworkCWSSACrossAccountAccessRole
+        - Arn
+      ExternalId: !Ref ExternalID
+      SqsQueueUrl: !Ref LaceworkCWSQueue
+      ApiToken: !Ref AccessToken
+      Account: !Ref ResourceNamePrefix
+      TemplateVersion: '1.1'
+      AWSAccountId: !Ref 'AWS::AccountId'
+Outputs:
+  RoleARN:
+    Description: >-
+      Cross-account access role ARN to share with Lacework for CloudTrail
+      integration
+    Value: !GetAtt
+      - LaceworkCWSSACrossAccountAccessRole
+      - Arn
+  ExternalID:
+    Description: ExternalID to share with Lacework for CloudTrail integration
+    Value: !Ref ExternalID
+  SQSQueueURL:
+    Description: SQS queue URL to share with Lacework for CloudTrail Integration
+    Value: !Ref LaceworkCWSQueue
+  TemplateVersion:
+    Description: Template version
+    Value: '1.1'
