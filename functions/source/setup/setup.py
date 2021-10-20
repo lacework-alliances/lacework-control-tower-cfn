@@ -131,8 +131,19 @@ def delete(event, context):
             if "Summaries" in page:
                 stack_set_list.extend(page['Summaries'])
         for instance in stack_set_list:
-            account_list.append(instance['Account'])
-            region_list.append(instance['Region'])
+            acct=instance['Account']
+            region=instance['Region']
+            try:
+                if get_account_status_by_id(acct) == "ACTIVE":
+                    account_list.append(acct)
+                    region_list.append(region)
+                    logger.info("Adding acct {}".format(acct))
+                else:
+                    logger.info("Skipping acct {}".format(acct))
+            except Exception as account_status_exception:
+                logger.warning("Account status exception for acct {} {}".format(acct,
+                                                                                account_status_exception))
+
         region_list = list(set(region_list))
         account_list = list(set(account_list))
         logger.info("StackSet instances found in region(s): {}".format(region_list))
@@ -513,11 +524,23 @@ def setup_config(stack_set_name, lacework_account_name, lacework_account_sns, ex
             logger.info("Chose to deploy to existing accounts.")
             try:
                 account_list = []
+
                 paginator = cloudformation_client.get_paginator('list_stack_instances')
                 page_iterator = paginator.paginate(StackSetName="AWSControlTowerBP-BASELINE-CLOUDTRAIL")
                 for page in page_iterator:
                     for inst in page['Summaries']:
-                        account_list.append(inst['Account'])
+                        acct = inst['Account']
+                        try:
+                            status = get_account_status_by_id(acct)
+                            logger.info("Acct {} is {}.".format(acct, status))
+                            if status == "ACTIVE":
+                                account_list.append(inst['Account'])
+                                logger.info("Adding acct {}".format(acct))
+                            else:
+                                logger.info("Skipping acct {}".format(acct))
+                        except Exception as account_status_exception:
+                            logger.warning("Account status exception for acct {} {}".format(acct,
+                                                                                            account_status_exception))
 
                 logger.info("Accounts to deploy {}.".format(account_list))
                 if len(account_list) > 0:
@@ -551,6 +574,21 @@ def get_account_id_by_name(name):
         for acct in page['Accounts']:
             if acct['Name'] == name:
                 return acct['Id']
+
+    return None
+
+
+def get_account_status_by_id(id):
+    logger.info("setup.get_account_status_by_id called.")
+    org_client = session.client('organizations')
+    try:
+        response = org_client.describe_account(
+            AccountId=id
+        )
+        return response['Account']['Status']
+    except Exception as describe_exception:
+        logger.error("Exception getting account status on {} {}.".format(id,describe_exception))
+        return "UNKNOWN"
 
     return None
 

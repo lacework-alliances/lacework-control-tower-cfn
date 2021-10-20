@@ -11,10 +11,10 @@ Metadata:
           - LaceworkSecretKey
           - StackSetName
           - CapabilityType
+          - ExistingAccounts
           - KMSKeyIdentifierARN
           - LogAccountName
           - AuditAccountName
-          - ExistingAccounts
       - Label:
           default: "Advanced Configuration"
         Parameters:
@@ -83,7 +83,7 @@ Parameters:
     Default: Config
     Description: The Lacework Control Tower StackSet type to use
   ExistingAccounts:
-    Description: Choose to monitor any existing accounts.
+    Description: Choose to monitor any existing accounts. SUSPENDED accounts are skipped.
     Type: String
     AllowedValues:
       - 'Yes'
@@ -243,7 +243,7 @@ Resources:
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.7
-      Timeout: 120
+      Timeout: 900
       Environment:
         Variables:
           stack_set_name: !Ref StackSetName
@@ -274,11 +274,18 @@ Resources:
         PolicyDocument:
           Version: 2012-10-17
           Statement:
+          - Sid: AccountStatusCheck
+            Effect: Allow
+            Action:
+              - organizations:DescribeAccount
+            Resource:
+              !Join [ '', [ 'arn:aws:organizations::', !Ref 'AWS::AccountId', ':account/', '*' ,'/','*'] ]
           - Sid: StackSetInstanceCreate
             Effect: Allow
             Action:
             - cloudformation:CreateStackInstances
             - cloudformation:ListStackInstances
+            - organizations:DescribeAccount
             Resource:
               !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/', '*' ]]
           - Sid: StackSetInstanceDelete
