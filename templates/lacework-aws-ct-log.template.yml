@@ -35,19 +35,21 @@ Parameters:
     Default: ''
     Type: String
     MaxLength: '128'
-  KMSKeyIdentifierARN:
+  KMSKeyIdentifierArn:
     Description: Provide the ARN of the KMS key for decrypting S3 log files if necessary.
     Default: ''
     Type: String
-    MaxLength: '256'
   SqsQueueUrl:
     Type: String
     Description: The SQS Queue URL.
     AllowedPattern: '^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?'
-    ConstraintDescription: Contains a URL/URI pattern only
+    ConstraintDescription: Contains a URL/URI pattern only, ie. https://sqs.<region>.amazonaws.com/<account>/<name>
     Default: "https://sqs.<region>.amazonaws.com/<account>/<name>"
+  SqsQueueArn:
+    Type: String
+    Description: The SQS Queue Arn.
 Conditions:
-  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierARN, '']]
+  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
 Resources:
   LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
@@ -79,6 +81,14 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
+          - Sid: ConsumeNotifications
+            Action:
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:GetQueueUrl'
+              - 'sqs:DeleteMessage'
+              - 'sqs:ReceiveMessage'
+            Effect: Allow
+            Resource: !Ref SqsQueueArn
           - Sid: ListLogFiles
             Action:
               - 's3:ListBucket'
@@ -130,31 +140,9 @@ Resources:
             Action:
               - 'kms:Decrypt'
             Effect: Allow
-            Resource: !Ref KMSKeyIdentifierARN
+            Resource: !Ref KMSKeyIdentifierArn
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
-  LaceworkSnsCustomResource:
-    Type: 'Custom::LaceworkSnsCustomResource'
-    DependsOn:
-      - LaceworkCWSPolicy
-      - LaceworkCWSSACrossAccountAccessRole
-    Properties:
-      Type: AWS_CT_CFG
-      ServiceToken: !Join
-        - ''
-        - - 'arn:aws:sns:'
-          - !Ref 'AWS::Region'
-          - ':434813966438:prodn-customer-cloudformation'
-      IntegrationName: !Ref 'AWS::StackName'
-      RoleArn: !GetAtt
-        - LaceworkCWSSACrossAccountAccessRole
-        - Arn
-      ExternalId: !Ref ExternalID
-      SqsQueueUrl: !Ref SqsQueueUrl
-      ApiToken: !Ref AccessToken
-      Account: !Ref ResourceNamePrefix
-      TemplateVersion: '1.1'
-      AWSAccountId: !Ref 'AWS::AccountId'
 Outputs:
   RoleARN:
     Description: >-
