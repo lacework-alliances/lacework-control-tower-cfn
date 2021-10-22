@@ -31,6 +31,10 @@ from crhelper import CfnResource
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
 
+LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
+AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
+CONTROL_TOWER_CLOUDTRAIL_STACK = "aws-controltower-BaselineCloudTrail"
+
 STACK_SET_SUCCESS_STATES = ["SUCCEEDED"]
 STACK_SET_RUNNING_STATES = ["RUNNING", "STOPPING"]
 
@@ -111,13 +115,12 @@ def create(event, context):
 @helper.delete  # crhelper method to delete stack set and stack instances
 def delete(event, context):
     logger.info("setup.delete called.")
-    delete_wait_time = (int(context.get_remaining_time_in_millis()) - 100) / 1000
-    delete_sleep_time = 30
     stack_set_name = os.environ['stack_set_name']
     lacework_account_name = os.environ['lacework_account_name']
     log_account_name = os.environ['log_account_name']
     audit_account_name = os.environ['audit_account_name']
     region_name = context.invoked_function_arn.split(":")[3]
+    lacework_api_credentials = os.environ['lacework_api_credentials']
 
     cloudformation_client = session.client("cloudformation")
 
@@ -170,7 +173,7 @@ def delete(event, context):
         logger.warning("Problem occurred while deleting, StackSet {} still exist : {}".format(stack_set_name,
                                                                                               stack_set_exception))
 
-    audit_stack_set_name = "Lacework-CloudTrail-Audit-Account-Setup-" + lacework_account_name
+    audit_stack_set_name = AUDIT_NAME_PREFIX + lacework_account_name
     try:
         audit_account_id = get_account_id_by_name(audit_account_name)
         if audit_account_id is not None:
@@ -191,11 +194,11 @@ def delete(event, context):
 
     try:
         audit_stack_set_response = cloudformation_client.delete_stack_set(StackSetName=audit_stack_set_name)
-        logger.info("StackSet {} template delete status {}".format(audit_stack_set_response, response))
+        logger.info("StackSet {} template delete status {}".format(audit_stack_set_name, audit_stack_set_response))
     except Exception as stack_set_exception:
-        logger.warning("Problem occurred while deleting, StackSet {} still exist : {}".format(audit_stack_set_name,
-                                                                                              stack_set_exception))
-    log_stack_set_name = "Lacework-CloudTrail-Log-Account-Setup-" + lacework_account_name
+        logger.warning("Problem occurred while deleting StackSet {} : {}".format(audit_stack_set_name,
+                                                                                 stack_set_exception))
+    log_stack_set_name = LOG_NAME_PREFIX + lacework_account_name
     try:
         log_account_id = get_account_id_by_name(log_account_name)
         if log_account_id is not None:
@@ -211,15 +214,25 @@ def delete(event, context):
 
     except Exception as delete_log_stack_exception:
         logger.warning(
-            "Problem occurred while deleting, Lacework-CloudTrail-Log-Account-Setup still exist : {}".format(
-                delete_log_stack_exception))
+            "Problem occurred while deleting StackSet {} : {}".format(log_stack_set_name,
+                                                                      delete_log_stack_exception))
 
     try:
         log_stack_set_response = cloudformation_client.delete_stack_set(StackSetName=log_stack_set_name)
-        logger.info("StackSet {} template delete status {}".format(log_stack_set_response, response))
+        logger.info("StackSet {} template delete status {}".format(log_stack_set_name, log_stack_set_response))
     except Exception as stack_set_exception:
         logger.warning("Problem occurred while deleting, StackSet {} still exist : {}".format(log_stack_set_name,
                                                                                               stack_set_exception))
+
+    try:
+        access_token = get_access_token(lacework_api_credentials)
+        if access_token is None:
+            logger.warning("Unable to get Lacework access token. Failed to delete cloud account {}.")
+        else:
+            if not delete_lw_cloud_account_for_ct(lacework_account_name, access_token):
+                logger.warning("Failed to delete CloudTrail cloud account for {}.".format(lacework_account_name))
+    except Exception as delete_exception:
+        logger.warning("Failed to delete CloudTrail cloud account for {} {}.", lacework_account_name, delete_exception)
 
     send_cfn_response(event, context, SUCCESS, {})
     return None
@@ -304,6 +317,28 @@ def setup_initial_access_token(lacework_account_name, lacework_api_credentials):
         return None
 
 
+def get_access_token(lacework_api_credentials):
+    logger.info("setup.get_access_token called.")
+
+    secret_client = session.client('secretsmanager')
+    try:
+        secret_response = secret_client.get_secret_value(
+            SecretId=lacework_api_credentials
+        )
+        if 'SecretString' not in secret_response:
+            logger.error("SecretString not found in {}".format(lacework_api_credentials))
+            return None
+
+        secret_string_dict = json.loads(secret_response['SecretString'])
+        access_token = secret_string_dict['AccessToken']
+
+        return access_token
+
+    except Exception as e:
+        logger.error("Get access token error: {}.".format(e))
+        return None
+
+
 def add_lw_cloud_account_for_ct(integration_name, lacework_account_name, access_token, external_id,
                                 role_arn, sqs_queue_url):
     logger.info("setup.add_lw_cloud_account_for_ct")
@@ -339,6 +374,60 @@ def add_lw_cloud_account_for_ct(integration_name, lacework_account_name, access_
         return False
 
 
+def delete_lw_cloud_account_for_ct(lacework_account_name, access_token):
+    logger.info("setup.delete_lw_cloud_account_for_ct")
+    integration_name = LOG_NAME_PREFIX + lacework_account_name
+
+    try:
+        search_request_payload = '''
+        {{
+            "filters": [
+                {{
+                    "field": "name",
+                    "expression": "eq",
+                    "value": "{}"
+                }}
+            ],
+            "returns": [
+                "intgGuid"
+            ]
+        }}
+        '''.format(integration_name)
+        logger.info('Generate search account payload : {}'.format(search_request_payload))
+
+        search_response = requests.post(
+            "https://" + lacework_account_name + ".lacework.net/api/v2/CloudAccounts/search",
+            headers={'Authorization': access_token, 'content-type': 'application/json'},
+            verify=True, data=search_request_payload)
+        logger.info('API response code : {}'.format(search_response.status_code))
+        logger.info('API response : {}'.format(search_response.text))
+        if search_response.status_code == 200:
+            search_response_dict = json.loads(search_response.text)
+            data_dict = search_response_dict['data'];
+            if len(data_dict) == 0:
+                logger.warning("Cloud account with integration name {} was not found.".format(integration_name))
+                return False
+            elif len(data_dict) > 1:
+                logger.warning("Cloud account with integration name {} was not found.".format(integration_name))
+                return False
+            intg_guid = data_dict[0]['intgGuid']
+            delete_response = requests.delete("https://" + lacework_account_name + ".lacework.net/api/v2/CloudAccounts/"
+                                              + intg_guid,
+                                              headers={'Authorization': access_token},
+                                              verify=True)
+            logger.info('API response code : {}'.format(delete_response.status_code))
+            logger.info('API response : {}'.format(delete_response.text))
+            if delete_response.status_code == 204:
+                return True
+            else:
+                return False
+        else:
+            return False
+    except Exception as e:
+        logger.error("Error deleting Cloud Account {} {}".format(integration_name, e))
+        return False
+
+
 def setup_cloudtrail(lacework_account_name, region_name, management_account_id, log_account_name, log_account_template,
                      audit_account_name, audit_account_template, access_token, external_id):
     logger.info("setup.setup_cloudtrail called.")
@@ -360,18 +449,18 @@ def setup_cloudtrail(lacework_account_name, region_name, management_account_id, 
     try:
         cloudtrail_client = boto3.client('cloudtrail')
         trail = cloudtrail_client.get_trail(
-            Name="aws-controltower-BaselineCloudTrail"
+            Name=CONTROL_TOWER_CLOUDTRAIL_STACK
         )
         cloudtrail_s3_bucket = trail['Trail']['S3BucketName']
         cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
     except Exception as trail_exception:
-        logger.error("Error getting cloudtrail aws-controltower-BaselineCloudTrail {}.".format(trail_exception))
+        logger.error("Error getting cloudtrail {} {}.".format(CONTROL_TOWER_CLOUDTRAIL_STACK, trail_exception))
         raise trail_exception
 
     cloudformation_client = session.client("cloudformation")
 
     try:
-        log_stack_set_name = "Lacework-CloudTrail-Log-Account-Setup-" + lacework_account_name
+        log_stack_set_name = LOG_NAME_PREFIX + lacework_account_name
         cloudformation_client.describe_stack_set(StackSetName=log_stack_set_name)
         logger.info("Stack set {} already exist".format(log_stack_set_name))
     except Exception as describe_exception:
@@ -451,7 +540,7 @@ def setup_cloudtrail(lacework_account_name, region_name, management_account_id, 
             raise create_exception
 
     try:
-        audit_stack_set_name = "Lacework-CloudTrail-Audit-Account-Setup-" + lacework_account_name
+        audit_stack_set_name = AUDIT_NAME_PREFIX + lacework_account_name
         cloudformation_client.describe_stack_set(StackSetName=audit_stack_set_name)
         logger.info("Stack set {} already exist".format(audit_stack_set_name))
     except Exception as describe_exception:
@@ -513,7 +602,8 @@ def setup_cloudtrail(lacework_account_name, region_name, management_account_id, 
             raise create_exception
 
         try:
-            result = add_lw_cloud_account_for_ct(log_stack_set_name, lacework_account_name, access_token, external_id, cross_account_access_role,
+            result = add_lw_cloud_account_for_ct(log_stack_set_name, lacework_account_name, access_token, external_id,
+                                                 cross_account_access_role,
                                                  sqs_queue_url)
             if not result:
                 message = "Failed to create account in Lacework!"

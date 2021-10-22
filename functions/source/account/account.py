@@ -90,8 +90,7 @@ def cfn_stack_set_processing(messages):
     access_token = get_access_token(lacework_api_credentials)
 
     if access_token is None:
-        message = "Unable to get Lacework access token. Failed to create stack instances."
-        logger.error(message)
+        logger.error("Unable to get Lacework access token. Failed to create stack instances.")
         return None
 
     for stack_set_name, params in messages.items():
@@ -180,7 +179,6 @@ def list_stack_instance_by_account_region(target_session, stack_set_name, accoun
 
 def get_access_token(lacework_api_credentials):
     logger.info("account.get_access_token called.")
-    lacework_api_credentials = os.environ['lacework_api_credentials']
 
     secret_client = session.client('secretsmanager')
     try:
