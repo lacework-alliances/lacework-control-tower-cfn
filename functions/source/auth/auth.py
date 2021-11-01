@@ -67,9 +67,10 @@ def refresh_access_token():
         expiration = datetime.fromisoformat(token_expiry.replace("Z", "+00:00"))
 
         logger.info("Formatted ISO token expiration is {}".format(expiration))
-        refresh_time = datetime.now(timezone.utc) + timedelta(hours=6)
-        logger.info("Refresh time is {}".format(refresh_time))
-        if refresh_time < expiration:
+        early_refresh_time = expiration - timedelta(hours=6)
+        now_time = datetime.now(timezone.utc)
+        logger.info("Now is {} and early refresh time is {}".format(now_time, early_refresh_time))
+        if now_time < early_refresh_time:
             logger.info("Access token is still valid {}".format(expiration))
             return None
 
