@@ -15,8 +15,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-import datetime
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import boto3
 import json
@@ -36,20 +35,17 @@ def lambda_handler(event, context):
     logger.info("auth.lambda_handler called.")
     logger.info(json.dumps(event))
     try:
-        # called from stack_setSNS
-        if 'Records' in event:
-            auth_sns_processing(event['Records'])
-        else:
-            logger.info("Event not processed.")
+        auth_sns_processing()
     except Exception as e:
         logger.error(e)
 
 
-def auth_sns_processing(messages):
+def auth_sns_processing():
     logger.info("auth.auth_sns_processing called.")
-    refresh_access_token(messages)
+    refresh_access_token()
 
-def refresh_access_token(messages):
+
+def refresh_access_token():
     logger.info("auth.refresh_access_token called.")
     lacework_api_credentials = os.environ['lacework_api_credentials']
     lacework_account_name = os.environ['lacework_account_name']
@@ -67,11 +63,14 @@ def refresh_access_token(messages):
         access_key_id = secret_string_dict['AccessKeyID']
         secret_key = secret_string_dict['SecretKey']
         token_expiry = secret_string_dict['TokenExpiry']  # yyyy-MM-ddTHH:mm:ss.SSSZ
+        logger.info("Token expiration is {}".format(token_expiry))
+        expiration = datetime.fromisoformat(token_expiry.replace("Z", "+00:00"))
 
-        datetime_obj = datetime.strptime(token_expiry, '%Y-%m-%dT%H:%M:%S.%fZ')
-
-        if datetime_obj - datetime.timedelta(hours=12) < datetime.utcnow():
-            logger.info("Access token is still valid {}".format(token_expiry))
+        logger.info("Formatted ISO token expiration is {}".format(expiration))
+        refresh_time = datetime.now(timezone.utc) + timedelta(hours=6)
+        logger.info("Refresh time is {}".format(refresh_time))
+        if refresh_time < expiration:
+            logger.info("Access token is still valid {}".format(expiration))
             return None
 
         logger.info("Access token is expires soon. Refreshing... {}".format(token_expiry))
@@ -95,6 +94,7 @@ def refresh_access_token(messages):
             token = payload_response['token']
             secret_string_dict['AccessToken'] = token
             secret_string_dict['TokenExpiry'] = expires_at
+            logger.info("New token expiration is {}".format(expires_at))
             secret_client.update_secret(SecretId=lacework_api_credentials, SecretString=json.dumps(secret_string_dict))
             return token
         else:
