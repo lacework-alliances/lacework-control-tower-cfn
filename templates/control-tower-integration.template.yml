@@ -506,7 +506,7 @@ Resources:
   LaceworkAuthFunctionScheduleEvents:
     Type: 'AWS::Events::Rule'
     Properties:
-      ScheduleExpression: cron(* 1/2 * * ? *)
+      ScheduleExpression: cron(0 */2 * * ? *)
       Targets:
         - Arn: !GetAtt "LaceworkAuthFunction.Arn"
           Id: IDLaceworkAuthFunctionScheduleEvents
