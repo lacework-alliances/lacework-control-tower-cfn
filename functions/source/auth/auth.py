@@ -74,7 +74,7 @@ def refresh_access_token():
             logger.info("Access token is still valid {}".format(expiration))
             return None
 
-        logger.info("Access token is expires soon. Refreshing... {}".format(token_expiry))
+        logger.info("Access token will expire soon. Refreshing... {}".format(token_expiry))
 
         request_payload = '''
         {{

@@ -58,21 +58,21 @@ Parameters:
     Type: String
     Description: Your Lacework account name. ie. <account name>.lacework.net
     MinLength: '1'
-    AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework account name contains alphanumeric characters only
+    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    ConstraintDescription: Invalid Lacework account name. Account name may contain alphanumeric characters and dashes only.
   LaceworkAccessKeyID:
     Type: String
     NoEcho: true
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework API Access Key ID contains alphanumeric characters and symbols only
+    ConstraintDescription: Lacework API Access Key ID contains alphanumeric characters and symbols only.
     Description: Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
   LaceworkSecretKey:
     Type: String
     NoEcho: true
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only
+    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only.
     Description: Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
   StackSetName:
     Type: String
@@ -98,14 +98,14 @@ Parameters:
     Description: Your AWS Control Tower log account name.
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9\s]*$'
-    ConstraintDescription: Account name contains alphanumeric characters only
+    ConstraintDescription: Account name contains alphanumeric characters only.
     Default: "Log Archive"
   AuditAccountName:
     Type: String
     Description: Your AWS Control Tower audit account name.
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9\s]*$'
-    ConstraintDescription: Account name contains alphanumeric characters only
+    ConstraintDescription: Account name contains alphanumeric characters only.
     Default: "Audit"
   KMSKeyIdentifierARN:
     Description: Provide the ARN of the KMS key for decrypting S3 log files decryption if necessary. Won't use KMS decrypt if no key provided.
