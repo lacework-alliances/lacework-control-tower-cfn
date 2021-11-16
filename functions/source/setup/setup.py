@@ -210,7 +210,7 @@ def delete(event, context):
             logger.info(log_stack_instance_response)
             wait_for_stack_set_operation(log_stack_set_name, log_stack_instance_response['OperationId'])
         else:
-            logger.warning("Log account with name {} was not found.")
+            logger.warning("Log account with name {} was not found.".format(log_account_id))
 
     except Exception as delete_log_stack_exception:
         logger.warning(
