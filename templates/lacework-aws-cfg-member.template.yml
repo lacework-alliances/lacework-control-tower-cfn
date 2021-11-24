@@ -28,6 +28,13 @@ Parameters:
     Type: String
     MinLength: '2'
     MaxLength: '1224'
+  ServiceToken:
+    Default: 'arn:aws:sns:us-west-2::434813966438:prodn-customer-cloudformation'
+    Description: >-
+      Access token used by this stack template.
+    Type: String
+    MinLength: '2'
+    MaxLength: '1224'
 Resources:
   LaceworkCrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
@@ -58,11 +65,7 @@ Resources:
       - LaceworkCrossAccountAccessRole
     Properties:
       Type: AWS_CFG
-      ServiceToken: !Join
-        - ''
-        - - 'arn:aws:sns:'
-          - !Ref 'AWS::Region'
-          - ':434813966438:prodn-customer-cloudformation'
+      ServiceToken: !Ref ServiceToken
       IntegrationName: !Ref 'AWS::StackName'
       RoleArn: !GetAtt
         - LaceworkCrossAccountAccessRole

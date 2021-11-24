@@ -80,7 +80,6 @@ def create(event, context):
     logger.info("Lacework URL: {}, Lacework account: {}, Lacework Sub Account: {}".format(lacework_url,
                                                                                           lacework_account_name,
                                                                                           lacework_sub_account_name))
-
     access_token = setup_initial_access_token(lacework_url, lacework_sub_account_name, lacework_api_credentials)
     if access_token is None:
         message = "Unable to get Lacework access token. Failed setup."
@@ -109,7 +108,7 @@ def create(event, context):
                              audit_account_name,
                              audit_account_template, access_token, external_id)
 
-        setup_config(lacework_account_name, lacework_sub_account_name, lacework_account_sns,
+        setup_config(lacework_url, lacework_account_name, lacework_sub_account_name, lacework_account_sns,
                      existing_accounts,
                      member_account_template,
                      management_account_id,
@@ -135,7 +134,7 @@ def delete(event, context):
     region_name = context.invoked_function_arn.split(":")[3]
     lacework_api_credentials = os.environ['lacework_api_credentials']
     config_stack_set_name = CONFIG_NAME_PREFIX + \
-        (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                            (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
 
     cloudformation_client = session.client("cloudformation")
 
@@ -189,7 +188,7 @@ def delete(event, context):
                                                                                               stack_set_exception))
 
     audit_stack_set_name = AUDIT_NAME_PREFIX + \
-        (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                           (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
     try:
         audit_account_id = get_account_id_by_name(audit_account_name)
         if audit_account_id is not None:
@@ -215,7 +214,7 @@ def delete(event, context):
         logger.warning("Problem occurred while deleting StackSet {} : {}".format(audit_stack_set_name,
                                                                                  stack_set_exception))
     log_stack_set_name = LOG_NAME_PREFIX + \
-        (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                         (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
     try:
         log_account_id = get_account_id_by_name(log_account_name)
         if log_account_id is not None:
@@ -469,7 +468,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
     try:
         lacework_account_name = get_account_from_url(lacework_url)
         log_stack_set_name = LOG_NAME_PREFIX + \
-            (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
         cloudformation_client.describe_stack_set(StackSetName=log_stack_set_name)
         logger.info("Stack set {} already exist".format(log_stack_set_name))
     except Exception as describe_exception:
@@ -558,7 +557,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
 
     try:
         audit_stack_set_name = AUDIT_NAME_PREFIX + \
-            (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                               (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
         cloudformation_client.describe_stack_set(StackSetName=audit_stack_set_name)
         logger.info("Stack set {} already exist".format(audit_stack_set_name))
     except Exception as describe_exception:
@@ -637,7 +636,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
             raise create_account_exception
 
 
-def setup_config(lacework_account_name, lacework_sub_account_name, lacework_account_sns,
+def setup_config(lacework_url, lacework_account_name, lacework_sub_account_name, lacework_account_sns,
                  existing_accounts,
                  member_account_template,
                  management_account_id, region_name, access_token, external_id):
@@ -645,12 +644,14 @@ def setup_config(lacework_account_name, lacework_sub_account_name, lacework_acco
     cloudformation_client = session.client("cloudformation")
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
-            (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                                (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
         account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
+        service_token = get_service_token(lacework_url, region_name)
         cloudformation_client.describe_stack_set(StackSetName=config_stack_set_name)
         logger.info("Stack set {} already exist".format(config_stack_set_name))
     except Exception as describe_exception:
-        logger.info("Stack set {} does not exist, creating it now. {}".format(config_stack_set_name, describe_exception))
+        logger.info(
+            "Stack set {} does not exist, creating it now. {}".format(config_stack_set_name, describe_exception))
         management_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
         logger.info("Using role {} to create stack {}".format(management_role, config_stack_set_name))
         logger.info("Creating config stack with ResourceNamePrefix: {} ExternalID: {} ".format(account_name,
@@ -676,6 +677,12 @@ def setup_config(lacework_account_name, lacework_sub_account_name, lacework_acco
                 {
                     "ParameterKey": "AccessToken",
                     "ParameterValue": access_token,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ServiceToken",
+                    "ParameterValue": service_token,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }
@@ -720,7 +727,8 @@ def setup_config(lacework_account_name, lacework_sub_account_name, lacework_acco
                 if len(account_list) > 0:
                     logger.info("New accounts : {}".format(account_list))
                     sns_client = session.client("sns")
-                    message_body = {config_stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
+                    message_body = {
+                        config_stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
                     try:
                         sns_response = sns_client.publish(
                             TopicArn=lacework_account_sns,
@@ -792,6 +800,13 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
 
 def get_account_from_url(lacework_url):
     return lacework_url.split('.')[0]
+
+
+def get_service_token(lacework_url, region_name):
+    if ".fra." in lacework_url:
+        return "arn:aws:sns:" + region_name + ":434813966438:euprodn-customer-cloudformation"
+    else:
+        return "arn:aws:sns:" + region_name + ":434813966438:prodn-customer-cloudformation"
 
 
 def get_sqs_queue_arn(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):
