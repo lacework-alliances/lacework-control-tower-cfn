@@ -48,7 +48,8 @@ def auth_sns_processing():
 def refresh_access_token():
     logger.info("auth.refresh_access_token called.")
     lacework_api_credentials = os.environ['lacework_api_credentials']
-    lacework_account_name = os.environ['lacework_account_name']
+    lacework_sub_account_name = os.environ['lacework_sub_account_name']
+    lacework_url = os.environ['lacework_url']
 
     secret_client = session.client('secretsmanager')
     try:
@@ -76,17 +77,7 @@ def refresh_access_token():
 
         logger.info("Access token will expire soon. Refreshing... {}".format(token_expiry))
 
-        request_payload = '''
-        {{
-            "keyId": "{}", 
-            "expiryTime": 86400
-        }}
-        '''.format(access_key_id)
-        logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
-
-        response = requests.post("https://" + lacework_account_name + ".lacework.net/api/v2/access/tokens",
-                                 headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
-                                 verify=True, data=request_payload)
+        response = send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key)
         logger.info('API response code : {}'.format(response.status_code))
         logger.debug('API response : {}'.format(response.text))
         if response.status_code == 201:
@@ -103,4 +94,21 @@ def refresh_access_token():
             return None
     except Exception as e:
         logger.error("Error setting up initial access token {}".format(e))
+        return None
+
+
+def send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key):
+    request_payload = '''
+        {{
+            "keyId": "{}", 
+            "expiryTime": 86400
+        }}
+        '''.format(access_key_id)
+    logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
+    try:
+        return requests.post("https://" + lacework_url + "/api/v2/access/tokens",
+                             headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
+                             verify=True, data=request_payload)
+    except Exception as api_request_exception:
+        raise api_request_exception
         return None

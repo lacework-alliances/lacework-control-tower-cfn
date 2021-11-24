@@ -6,10 +6,10 @@ Metadata:
       - Label:
           default: "Basic Configuration"
         Parameters:
-          - LaceworkAccountName
+          - LaceworkURL
+          - LaceworkSubAccountName
           - LaceworkAccessKeyID
           - LaceworkSecretKey
-          - StackSetName
           - CapabilityType
           - ExistingAccounts
           - KMSKeyIdentifierARN
@@ -24,14 +24,14 @@ Metadata:
           - CTAuditAccountTemplate
           - CFGMemberAccountTemplate
     ParameterLabels:
-      LaceworkAccountName:
-        default: Lacework Account Name
+      LaceworkURL:
+        default: Your Lacework URL
+      LaceworkSubAccountName:
+        default: Lacework Sub-Account Name
       LaceworkAccessKeyID:
         default: Lacework Access Key ID
       LaceworkSecretKey:
         default: Lacework Secret Key
-      StackSetName:
-        default: StackSet Name
       CapabilityType:
         default: Capability Type
       ExistingAccounts:
@@ -54,15 +54,19 @@ Metadata:
         default: Member Account Cloudformation Template
 Parameters:
   # basic
-  LaceworkAccountName:
+  LaceworkURL:
     Type: String
-    Description: Your Lacework account name. ie. <account name>.lacework.net
+    Description: Your Lacework URL. ie. account.lacework.net.
     MinLength: '1'
-    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    AllowedPattern: '(.+?)\.lacework\.net'
+    ConstraintDescription: Invalid Lacework URL.
+  LaceworkSubAccountName:
+    Type: String
+    Description: If Lacework Organizations is enabled, this is the sub-account. Leave blank if Lacework Organizations is not enabled.
+    AllowedPattern: '^$|^[a-zA-Z0-9.]+(?:-[a-zA-Z0-9.]+)*$'
     ConstraintDescription: Invalid Lacework account name. Account name may contain alphanumeric characters and dashes only.
   LaceworkAccessKeyID:
     Type: String
-    NoEcho: true
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: Lacework API Access Key ID contains alphanumeric characters and symbols only.
@@ -74,11 +78,6 @@ Parameters:
     AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only.
     Description: Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
-  StackSetName:
-    Type: String
-    Description: The name for the Lacework Control Tower StackSet
-    MinLength: '1'
-    Default: Lacework-CT
   CapabilityType:
     AllowedValues:
       - 'CloudTrail+Config'
@@ -257,8 +256,8 @@ Resources:
       Timeout: 900
       Environment:
         Variables:
-          stack_set_name: !Ref StackSetName
-          lacework_account_name: !Ref LaceworkAccountName
+          lacework_url: !Ref LaceworkURL
+          lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_account_sns: !Ref LaceworkAccountSNS
           capability_type: !Ref CapabilityType
@@ -422,7 +421,7 @@ Resources:
             - cloudformation:DescribeStackSetOperation
             - cloudformation:DeleteStackInstances
             Resource:
-              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/',  !Ref StackSetName, '*' ]]
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/Lacework-Control-Tower-Config-Member*' ]]
           - Sid: StackSetOperations
             Effect: Allow
             Action:
@@ -456,7 +455,6 @@ Resources:
       Timeout: 120
       Environment:
         Variables:
-          stack_set_name: !Ref StackSetName
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkAccountFunctionRole.Arn
@@ -499,7 +497,8 @@ Resources:
       Timeout: 120
       Environment:
         Variables:
-          lacework_account_name: !Ref LaceworkAccountName
+          lacework_url: !Ref LaceworkURL
+          lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkAuthFunctionRole.Arn
 
@@ -537,8 +536,8 @@ Resources:
       Name: LaceworkControlTowerEvents
       State: ENABLED
       Targets:
-      - Arn: !GetAtt "LaceworkAccountFunction.Arn"
-        Id: IDLaceworkControlTowerEvents
+      - Arn: !GetAtt LaceworkAccountFunction.Arn
+        Id: IDLaceworkAccountFunction
 
   LaceworkControlTowerLifeCyclePermission:
     Type: AWS::Lambda::Permission
