@@ -34,7 +34,6 @@ FAILED = "FAILED"
 LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
 AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
 CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
-CONTROL_TOWER_CLOUDTRAIL_STACK = "aws-controltower-BaselineCloudTrail"
 
 STACK_SET_SUCCESS_STATES = ["SUCCEEDED"]
 STACK_SET_RUNNING_STATES = ["RUNNING", "STOPPING"]
@@ -95,6 +94,7 @@ def create(event, context):
     audit_account_name = os.environ['audit_account_name']
     audit_account_template = os.environ['audit_account_template']
     member_account_template = os.environ['member_account_template']
+    existing_cloudtrail = os.environ['existing_cloudtrail']
 
     management_account_id = context.invoked_function_arn.split(":")[4]
     region_name = context.invoked_function_arn.split(":")[3]
@@ -106,7 +106,7 @@ def create(event, context):
                              log_account_name,
                              log_account_template,
                              audit_account_name,
-                             audit_account_template, access_token, external_id)
+                             audit_account_template, access_token, external_id, existing_cloudtrail)
 
         setup_config(lacework_url, lacework_account_name, lacework_sub_account_name, lacework_account_sns,
                      existing_accounts,
@@ -434,8 +434,8 @@ def delete_lw_cloud_account_for_ct(integration_name, lacework_url, lacework_sub_
 
 
 def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, management_account_id, log_account_name,
-                     log_account_template,
-                     audit_account_name, audit_account_template, access_token, external_id):
+                     log_account_template, audit_account_name, audit_account_template, access_token, external_id,
+                     existing_cloudtrail):
     logger.info("setup.setup_cloudtrail called.")
 
     log_account_id = get_account_id_by_name(log_account_name)
@@ -455,12 +455,12 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
     try:
         cloudtrail_client = boto3.client('cloudtrail')
         trail = cloudtrail_client.get_trail(
-            Name=CONTROL_TOWER_CLOUDTRAIL_STACK
+            Name=existing_cloudtrail
         )
         cloudtrail_s3_bucket = trail['Trail']['S3BucketName']
         cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
     except Exception as trail_exception:
-        logger.error("Error getting cloudtrail {} {}.".format(CONTROL_TOWER_CLOUDTRAIL_STACK, trail_exception))
+        logger.error("Error getting cloudtrail {} {}.".format(existing_cloudtrail, trail_exception))
         raise trail_exception
 
     cloudformation_client = session.client("cloudformation")

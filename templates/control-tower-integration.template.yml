@@ -12,6 +12,7 @@ Metadata:
           - LaceworkSecretKey
           - CapabilityType
           - ExistingAccounts
+          - ExistingCloudTrail
           - KMSKeyIdentifierARN
           - LogAccountName
           - AuditAccountName
@@ -36,6 +37,8 @@ Metadata:
         default: Capability Type
       ExistingAccounts:
         default: Monitor Existing Accounts
+      ExistingCloudTrail:
+        default: Existing AWS Control Tower CloudTrail Name
       LogAccountName:
         default: Log Account Name
       AuditAccountName:
@@ -56,58 +59,65 @@ Parameters:
   # basic
   LaceworkURL:
     Type: String
-    Description: Your Lacework URL. ie. account.lacework.net.
+    Description: "Enter your Lacework URL. ie. account.lacework.net."
     MinLength: '1'
     AllowedPattern: '(.+?)\.lacework\.net'
-    ConstraintDescription: Invalid Lacework URL.
+    ConstraintDescription: "Invalid Lacework URL."
   LaceworkSubAccountName:
     Type: String
-    Description: If Lacework Organizations is enabled, this is the sub-account. Leave blank if Lacework Organizations is not enabled.
+    Description: "If Lacework Organizations is enabled, enter the sub-account. Leave blank if Lacework Organizations is not enabled."
     AllowedPattern: '^$|^[a-zA-Z0-9.]+(?:-[a-zA-Z0-9.]+)*$'
-    ConstraintDescription: Invalid Lacework account name. Account name may contain alphanumeric characters and dashes only.
+    ConstraintDescription: "Invalid Lacework account name entered. The account name may contain alphanumeric characters and dashes only."
   LaceworkAccessKeyID:
     Type: String
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework API Access Key ID contains alphanumeric characters and symbols only.
-    Description: Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
+    ConstraintDescription: "The Lacework API Access Key ID contains alphanumeric characters and symbols only."
+    Description: "Enter the Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens."
   LaceworkSecretKey:
     Type: String
     NoEcho: true
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
-    ConstraintDescription: Lacework API Secret Key contains alphanumeric characters and symbols only.
-    Description: Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens
+    ConstraintDescription: "The Lacework API Secret Key contains alphanumeric characters and symbols only."
+    Description: "Enter the Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens."
   CapabilityType:
     AllowedValues:
       - 'CloudTrail+Config'
       - 'Config'
     Type: String
     Default: CloudTrail+Config
-    Description: The Lacework Control Tower StackSet type to use
+    Description: "Enter the Lacework Control Tower StackSet type to use."
   ExistingAccounts:
-    Description: Choose to monitor any existing accounts. SUSPENDED accounts are skipped.
+    Description: "Choose to monitor any existing accounts. SUSPENDED accounts are skipped."
     Type: String
     AllowedValues:
       - 'Yes'
       - 'No'
     Default: 'Yes'
+  ExistingCloudTrail:
+    Type: String
+    MinLength: '1'
+    AllowedPattern: '^[-a-zA-Z0-9_]*$'
+    ConstraintDescription: "Invalid CloudTrail name."
+    Description: "Enter your existing AWS Control Tower CloudTrail name."
+    Default: 'aws-controltower-BaselineCloudTrail'
   LogAccountName:
     Type: String
-    Description: Your AWS Control Tower log account name.
+    Description: "Enter your AWS Control Tower log account name."
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9\s]*$'
-    ConstraintDescription: Account name contains alphanumeric characters only.
+    ConstraintDescription: "The account name contains alphanumeric characters only."
     Default: "Log Archive"
   AuditAccountName:
     Type: String
-    Description: Your AWS Control Tower audit account name.
+    Description: "Enter your AWS Control Tower audit account name."
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9\s]*$'
-    ConstraintDescription: Account name contains alphanumeric characters only.
+    ConstraintDescription: "The account name contains alphanumeric characters only."
     Default: "Audit"
   KMSKeyIdentifierARN:
-    Description: Provide the ARN of the KMS key for decrypting S3 log files decryption if necessary. Won't use KMS decrypt if no key provided.
+    Description: "Provide the ARN of the KMS key for decrypting S3 log files decryption if necessary. Won't use KMS decrypt if no key provided."
     Default: ''
     Type: String
     MaxLength: '256'
@@ -116,27 +126,27 @@ Parameters:
     Type: String
     Default: lacework-alliances
     MinLength: '1'
-    Description: "S3 bucket for Lacework Control Tower Cloudformation assets. Use this if you want to customize your deployment. The bucket name can include numbers, lowercase letters, uppercase letters, and hyphens, but it cannot start or end with hyphens (-)."
+    Description: "Enter the S3 bucket for Lacework Control Tower Cloudformation assets. Use this if you want to customize your deployment."
   S3KeyPrefix:
     Type: String
     Default: lacework-control-tower-cfn
     MinLength: '1'
-    Description: "S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment. The prefix can include numbers, lowercase letters, uppercase letters, hyphens (-), and forward slashes (/). For more information, see https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html."
+    Description: "Enter the S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment."
   CTLogAccountTemplate:
     Type: String
     Default: lacework-aws-ct-log.template.yml
     MinLength: '1'
-    Description: "Cloudformation template for the log account. Expected to be in a templates/ directory."
+    Description: "Enter the Cloudformation template for the log account. Expected to be in a templates/ directory."
   CTAuditAccountTemplate:
     Type: String
     Default: lacework-aws-ct-audit.template.yml
     MinLength: '1'
-    Description: "Cloudformation template for the audit account. Expected to be in a templates/ directory."
+    Description: "Enter the Cloudformation template for the audit account. Expected to be in a templates/ directory."
   CFGMemberAccountTemplate:
     Type: String
     Default: lacework-aws-cfg-member.template.yml
     MinLength: '1'
-    Description: "Cloudformation template for a member account. Expected to be in a templates/ directory."
+    Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -262,6 +272,7 @@ Resources:
           lacework_account_sns: !Ref LaceworkAccountSNS
           capability_type: !Ref CapabilityType
           existing_accounts: !Ref ExistingAccounts
+          existing_cloudtrail: !Ref ExistingCloudTrail
           log_account_name: !Ref LogAccountName
           log_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
           audit_account_name: !Ref AuditAccountName
@@ -341,7 +352,7 @@ Resources:
             Effect: Allow
             Action:
               - cloudtrail:GetTrail
-            Resource: !Join ['', ['arn:aws:cloudtrail:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':trail/aws-controltower-BaselineCloudTrail' ]]
+            Resource: !Join ['', ['arn:aws:cloudtrail:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':trail/', !Ref 'ExistingCloudTrail' ]]
           - Sid: ListAccounts
             Effect: Allow
             Action:
@@ -455,6 +466,8 @@ Resources:
       Timeout: 120
       Environment:
         Variables:
+          lacework_url: !Ref LaceworkURL
+          lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkAccountFunctionRole.Arn
