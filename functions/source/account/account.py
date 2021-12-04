@@ -23,6 +23,8 @@ import logging
 import os
 import time
 
+import requests
+
 CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
@@ -66,8 +68,9 @@ def lifecycle_eventbridge_processing(event):
         lacework_url = os.environ['lacework_url']
         lacework_account_name = get_account_from_url(lacework_url)
         lacework_sub_account_name = os.environ['lacework_sub_account_name']
+        send_honeycomb_event(lacework_account_name, "add account", lacework_sub_account_name)
         config_stack_set_name = CONFIG_NAME_PREFIX + \
-                         (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+                                (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
         stack_set_instances = list_stack_instance_by_account_region(session, config_stack_set_name, account_id, region)
 
         logger.info("Processing Lifecycle event for {} in ".format(account_id, region))
@@ -76,7 +79,7 @@ def lifecycle_eventbridge_processing(event):
             logger.info("Create new stack set instance for {} {} {}".format(config_stack_set_name, account_id,
                                                                             region))
             message_body = {config_stack_set_name: {"target_accounts": [account_id],
-                                             "target_regions": [region]}}
+                                                    "target_regions": [region]}}
             cfn_stack_set_processing(message_body)
 
         # stack_set instance already exist, check for missing region
@@ -207,3 +210,32 @@ def get_access_token(lacework_api_credentials):
 
 def get_account_from_url(lacework_url):
     return lacework_url.split('.')[0]
+
+
+def send_honeycomb_event(account, event, subaccount="000000", eventdata="{}"):
+    logger.info("account.send_honeycomb_event called.")
+
+    try:
+        payload = '''
+        {{
+            "account": "{}",
+            "sub-account": "{}",
+            "tech-partner": "AWS",
+            "integration-name": "lacework-aws-control-tower-cloudformation",
+            "version": "$BUILD",
+            "service": "AWS Control Tower",
+            "install-method": "cloudformation",
+            "function": "account.py",
+            "event": "{}",
+            "event-data": {}
+        }}
+        '''.format(account, subaccount, event, eventdata)
+        logger.info('Generate payload : {}'.format(payload))
+        resp = requests.post("https://api.honeycomb.io/1/events/$DATASET",
+                             headers={'X-Honeycomb-Team': '$HONEY_KEY',
+                                      'content-type': 'application/json'},
+                             verify=True, data=payload)
+        logger.info ("Honeycomb response {} {}".format(resp, resp.content))
+
+    except Exception as e:
+        logger.warning("Get error sending to Honeycomb: {}.".format(e))

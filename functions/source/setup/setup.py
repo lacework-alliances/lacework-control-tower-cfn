@@ -72,6 +72,7 @@ def create(event, context):
     lacework_account_name = get_account_from_url(lacework_url)
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
     lacework_api_credentials = os.environ['lacework_api_credentials']
+    send_honeycomb_event(lacework_account_name, "create started", lacework_sub_account_name)
 
     if not lacework_sub_account_name:
         logger.info("Sub account was not specified.")
@@ -119,6 +120,7 @@ def create(event, context):
         send_cfn_response(event, context, FAILED, {})
         return None
 
+    send_honeycomb_event(lacework_account_name, "create completed", lacework_sub_account_name)
     send_cfn_response(event, context, SUCCESS, {})
     return None
 
@@ -135,6 +137,8 @@ def delete(event, context):
     lacework_api_credentials = os.environ['lacework_api_credentials']
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+
+    send_honeycomb_event(lacework_account_name, "delete started", lacework_sub_account_name)
 
     cloudformation_client = session.client("cloudformation")
 
@@ -251,6 +255,7 @@ def delete(event, context):
     except Exception as delete_exception:
         logger.warning("Failed to delete CloudTrail cloud account for {} {}.", lacework_account_name, delete_exception)
 
+    send_honeycomb_event(lacework_account_name, "delete completed", lacework_sub_account_name)
     send_cfn_response(event, context, SUCCESS, {})
     return None
 
@@ -726,6 +731,8 @@ def setup_config(lacework_url, lacework_account_name, lacework_sub_account_name,
                 logger.info("Accounts to deploy {}.".format(account_list))
                 if len(account_list) > 0:
                     logger.info("New accounts : {}".format(account_list))
+                    send_honeycomb_event(lacework_account_name, "add {} existing".format(len(account_list)),
+                                         lacework_sub_account_name)
                     sns_client = session.client("sns")
                     message_body = {
                         config_stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
@@ -897,3 +904,32 @@ def send_lacework_api_delete_request(lacework_url, api, access_token, sub_accoun
     except Exception as api_request_exception:
         raise api_request_exception
         return None
+
+
+def send_honeycomb_event(account, event, subaccount="000000", eventdata="{}"):
+    logger.info("setup.send_honeycomb_event called.")
+
+    try:
+        payload = '''
+        {{
+            "account": "{}",
+            "sub-account": "{}",
+            "tech-partner": "AWS",
+            "integration-name": "lacework-aws-control-tower-cloudformation",
+            "version": "$BUILD",
+            "service": "AWS Control Tower",
+            "install-method": "cloudformation",
+            "function": "setup.py",
+            "event": "{}",
+            "event-data": {}
+        }}
+        '''.format(account, subaccount, event, eventdata)
+        logger.info('Generate payload : {}'.format(payload))
+        resp = requests.post("https://api.honeycomb.io/1/events/$DATASET",
+                             headers={'X-Honeycomb-Team': '$HONEY_KEY',
+                                      'content-type': 'application/json'},
+                             verify=True, data=payload)
+        logger.info ("Honeycomb response {} {}".format(resp, resp.content))
+
+    except Exception as e:
+        logger.warning("Get error sending to Honeycomb: {}.".format(e))
