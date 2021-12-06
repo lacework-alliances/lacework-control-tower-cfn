@@ -136,7 +136,11 @@ def cfn_stack_set_processing(messages):
                                                                                  "UsePreviousValue": False,
                                                                                  "ResolvedValue": "string"
                                                                              }
-                                                                         ])
+                                                                         ],
+                                                                         OperationPreferences={
+                                                                             'RegionConcurrencyType': "PARALLEL",
+                                                                             'FailureToleranceCount': 999
+                                                                         })
 
                 logger.info("stack_set instance created {}".format(response))
             else:
