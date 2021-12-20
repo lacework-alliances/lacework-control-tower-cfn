@@ -71,7 +71,7 @@ Parameters:
   LaceworkAccessKeyID:
     Type: String
     MinLength: '1'
-    AllowedPattern: '^[a-zA-Z0-9_]*$'
+    AllowedPattern: '^[-a-zA-Z0-9_]*$'
     ConstraintDescription: "The Lacework API Access Key ID contains alphanumeric characters and symbols only."
     Description: "Enter the Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens."
   LaceworkSecretKey:
@@ -106,14 +106,14 @@ Parameters:
     Type: String
     Description: "Enter your AWS Control Tower log account name."
     MinLength: '1'
-    AllowedPattern: '^[a-zA-Z0-9\s]*$'
+    AllowedPattern: '^[-a-zA-Z0-9\s]*$'
     ConstraintDescription: "The account name contains alphanumeric characters only."
     Default: "Log Archive"
   AuditAccountName:
     Type: String
     Description: "Enter your AWS Control Tower audit account name."
     MinLength: '1'
-    AllowedPattern: '^[a-zA-Z0-9\s]*$'
+    AllowedPattern: '^[-a-zA-Z0-9\s]*$'
     ConstraintDescription: "The account name contains alphanumeric characters only."
     Default: "Audit"
   KMSKeyIdentifierARN:

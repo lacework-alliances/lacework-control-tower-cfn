@@ -27,3 +27,9 @@ Lacework's AWS Control Tower Customization enables a seamless AWS account onboar
 3. The LaceworkAccountFunction Lambda creates a new Stack instance(s) for the account(s).
 4. The Stack instance creates a new cross-account role and allows Lacework to monitor the account via AWS APIs.
 5. The Stack instance notifies Lacework of the new account through an SNS custom resource notification, LaceworkSNSCustomResource. This sends an SNS notification to Lacework and the account is created in Lacework’s platform.
+
+## Building and Uploading with Make
+
+1. Check the Makefile in the project directory and ensure the KEY_PREFIX and DATASET values are set correctly. These reflect the S3 and Honeycomb properties.
+2. In this project directory, run `make HONEY_KEY=<HONEYCOMB_SECRET>` to package the Lambda functions. <HONEYCOMB_SECRET> is the Honeycomb API token.
+3. Run `make upload` to upload the Lambda packages and CloudFormation templates.
