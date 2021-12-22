@@ -117,7 +117,7 @@ Parameters:
     ConstraintDescription: "The account name contains alphanumeric characters only."
     Default: "Audit"
   KMSKeyIdentifierARN:
-    Description: "Provide the ARN of the KMS key for decrypting S3 log files decryption if necessary. Won't use KMS decrypt if no key provided."
+    Description: "Provide the ARN of the KMS key for decrypting S3 log files decryption if necessary. Ensure that the Lacework account or role has kms:decrypt access within the Key Policy. Won't use KMS decrypt if no key provided."
     Default: ''
     Type: String
     MaxLength: '256'
