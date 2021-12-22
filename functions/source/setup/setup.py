@@ -91,6 +91,7 @@ def create(event, context):
     capability_type = os.environ['capability_type']
     existing_accounts = os.environ['existing_accounts']
     log_account_name = os.environ['log_account_name']
+    kms_key_id_arn = os.environ['kms_key_id_arn']
     log_account_template = os.environ['log_account_template']
     audit_account_name = os.environ['audit_account_name']
     audit_account_template = os.environ['audit_account_template']
@@ -105,6 +106,7 @@ def create(event, context):
         if capability_type == "CloudTrail+Config":
             setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, management_account_id,
                              log_account_name,
+                             kms_key_id_arn,
                              log_account_template,
                              audit_account_name,
                              audit_account_template, access_token, external_id, existing_cloudtrail)
@@ -439,8 +441,8 @@ def delete_lw_cloud_account_for_ct(integration_name, lacework_url, lacework_sub_
 
 
 def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, management_account_id, log_account_name,
-                     log_account_template, audit_account_name, audit_account_template, access_token, external_id,
-                     existing_cloudtrail):
+                     kms_key_id_arn, log_account_template, audit_account_name, audit_account_template, access_token,
+                     external_id, existing_cloudtrail):
     logger.info("setup.setup_cloudtrail called.")
 
     log_account_id = get_account_id_by_name(log_account_name)
@@ -518,6 +520,12 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
                     {
                         "ParameterKey": "ExistingTrailBucketName",
                         "ParameterValue": cloudtrail_s3_bucket,
+                        "UsePreviousValue": False,
+                        "ResolvedValue": "string"
+                    },
+                    {
+                        "ParameterKey": "KMSKeyIdentifierArn",
+                        "ParameterValue": kms_key_id_arn if kms_key_id_arn else '',
                         "UsePreviousValue": False,
                         "ResolvedValue": "string"
                     },

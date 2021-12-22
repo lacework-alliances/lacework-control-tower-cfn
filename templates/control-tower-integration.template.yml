@@ -274,6 +274,7 @@ Resources:
           existing_accounts: !Ref ExistingAccounts
           existing_cloudtrail: !Ref ExistingCloudTrail
           log_account_name: !Ref LogAccountName
+          kms_key_id_arn: !Ref KMSKeyIdentifierARN
           log_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
           audit_account_name: !Ref AuditAccountName
           audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
