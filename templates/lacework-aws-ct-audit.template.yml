@@ -56,6 +56,7 @@ Resources:
             Action:
               - 'sqs:DeleteMessage'
               - 'sqs:ReceiveMessage'
+              - 'sqs:GetQueueAttributes'
             Resource: !GetAtt LaceworkCWSQueue.Arn
       Queues:
         - !Ref LaceworkCWSQueue
