@@ -447,14 +447,14 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name, manag
 
     log_account_id = get_account_id_by_name(log_account_name)
     if log_account_id is None:
-        logger.error("Log account with name {} was not found.")
+        logger.error("Log account with name {} was not found.".format(log_account_id))
         raise Exception
     else:
         logger.info("Log account {} has AWS ID {}.".format(log_account_name, log_account_id))
 
     audit_account_id = get_account_id_by_name(audit_account_name)
     if audit_account_id is None:
-        logger.error("Audit account with name {} was not found.")
+        logger.error("Audit account with name {} was not found.".format(audit_account_id))
         raise Exception
     else:
         logger.info("Audit account {} has AWS ID {}.".format(audit_account_name, audit_account_id))
