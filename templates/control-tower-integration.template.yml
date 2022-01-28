@@ -24,6 +24,8 @@ Metadata:
           - CTLogAccountTemplate
           - CTAuditAccountTemplate
           - CFGMemberAccountTemplate
+          - LaceworkAWSAccountId
+          - LaceworkCustomSNS
     ParameterLabels:
       LaceworkURL:
         default: Your Lacework URL
@@ -55,6 +57,10 @@ Metadata:
         default: Audit Account Cloudformation Template
       CFGMemberAccountTemplate:
         default: Member Account Cloudformation Template
+      LaceworkAWSAccountId:
+        default: Lacework AWS Account ID
+      LaceworkCustomSNS:
+        default: Lacework Custom SNS Topic
 Parameters:
   # basic
   LaceworkURL:
@@ -147,6 +153,16 @@ Parameters:
     Default: lacework-aws-cfg-member.template.yml
     MinLength: '1'
     Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
+  LaceworkAWSAccountId:
+    Type: String
+    Default: "434813966438"
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    Description: "Enter the Lacework AWS Account ID. Change this FOR TESTING ONLY!"
+  LaceworkCustomSNS:
+    Type: String
+    Description: "Enter the custom Lacework SNS topic name. Change this FOR TESTING ONLY!"
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -279,6 +295,8 @@ Resources:
           audit_account_name: !Ref AuditAccountName
           audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
           member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
+          lacework_aws_account_id: !Ref LaceworkAWSAccountId
+          lacework_custom_sns: !Ref LaceworkCustomSNS
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
   LaceworkSetupFunctionRole:
     Type: AWS::IAM::Role

@@ -48,6 +48,13 @@ Parameters:
   SqsQueueArn:
     Type: String
     Description: The SQS Queue Arn.
+  LaceworkAWSAccountId:
+    Type: String
+    Default: "434813966438"
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    Description: "Enter the Lacework AWS Account ID. Change this FOR TESTING ONLY!"
 Conditions:
   UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
 Resources:
@@ -67,7 +74,7 @@ Resources:
               AWS: !Join
                 - ''
                 - - 'arn:aws:iam::'
-                  - '434813966438'
+                  - !Ref LaceworkAWSAccountId
                   - ':root'
             Condition:
               StringEquals:

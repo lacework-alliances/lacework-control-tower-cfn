@@ -48,7 +48,6 @@ def auth_sns_processing():
 def refresh_access_token():
     logger.info("auth.refresh_access_token called.")
     lacework_api_credentials = os.environ['lacework_api_credentials']
-    lacework_sub_account_name = os.environ['lacework_sub_account_name']
     lacework_url = os.environ['lacework_url']
 
     secret_client = session.client('secretsmanager')
