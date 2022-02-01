@@ -47,21 +47,21 @@ Follow these instructions to set up an AWS Control Tower Landing Zone. You must 
 [AWS Control Tower Landing Zone Set Up](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html#step-two)
 
 ## Lambda Functions
-- Setup - The Setup function is run when the control-tower-integration.template.yml stack is created. It does the following:
+- **Setup** - The Setup function is run when the control-tower-integration.template.yml stack is created. It does the following:
     * Sets up the initial access token and stores it using AWS secrets manager.
     * Creates the lacework-aws-cfg-member.template.yml, lacework-aws-ct-audit.template.yml and lacework-aws-ct-log.template.yml stacksets.
     * Executes lacework-aws-ct-audit.template.yml and lacework-aws-ct-log.template.yml stack instances for the Audit and Log Archive account respectively.
     * Adds the Lacework CloudTrail cloud account using the AWS Control Tower centralized CloudTrail S3 bucket.
     * If "Monitor existing accounts" is chosen, executes lacework-aws-cfg-member.template.yml stack instances for all existing AWS accounts. This adds Lacework Config cloud account for each AWS Account.
     * Sends Honeycomb telemetry.
-- Account - The Account function is executed when an AWS Control Tower lifecycle event for a new AWS Account enrollment. This executes lacework-aws-cfg-member.template.yml stack instance for the enrolled AWS account. This adds Lacework Config cloud account for this AWS Account.
-- Auth - This function periodically checks the Lacework access token for expiration and refreshes it if necessary.
+- **Account** - The Account function is executed when an AWS Control Tower lifecycle event for a new AWS Account enrollment. This executes a lacework-aws-cfg-member.template.yml stack instance for the enrolled AWS account. This adds a Lacework Config cloud account for this AWS Account.
+- **Auth** - This function periodically checks the Lacework access token for expiration and refreshes it if necessary.
 
 ## CloudFormation Templates
-- control-tower-integration.template.yml - This is the master CloudFormation template and sets up all the initial resources: Lambda functions, roles, policies, sns and event rules.
-- lacework-aws-cfg-member.template.yml - This template closely resembles the standard Lacework configuration template and enable a Lacework Config type cloud account.
-- lacework-aws-ct-audit.template.yml - This template sets up an SQS queue in the Audit AWS account where the AWS Control Tower CloudTrail SNS topic resides. Lacework receives CloudTrail update messages from the SQS queue.
-- lacework-aws-ct-log.template.yml - This template configures CloudTrail S3 bucket access in the Log Archive account where this bucket resides.
+- **control-tower-integration.template.yml** - This is the master CloudFormation template and sets up all the initial resources: Lambda functions, roles, policies, SNS and event rules.
+- **lacework-aws-cfg-member.template.yml** - This template closely resembles the standard Lacework configuration template and enables a Lacework Config type cloud account.
+- **lacework-aws-ct-audit.template.yml** - This template sets up an SQS queue in the Audit AWS account where the AWS Control Tower CloudTrail SNS topic resides. Lacework receives CloudTrail update messages from the SQS queue.
+- **lacework-aws-ct-log.template.yml** - This template configures CloudTrail S3 bucket access in the Log Archive account where this bucket resides.
 
 ## Lacework Control Tower Public S3 Buckets
 Released Lambda packages and templates are placed in the following S3 bucket. Customers deploy the solution from this bucket.
@@ -80,7 +80,7 @@ s3://lacework-alliances/lacework-control-tower-cfn/
 ```
 
 ## Honeycomb Telemetry
-The setup.py Lambda function sends telemetry to two Honeycomb datasets, _lacework-alliances-prod_ or _lacework-alliances-dev_. This is configured in the master Makefile using the **DATASET** variable. A Honeycomb API key must be passed during the make build:
+The Setup Lambda function sends telemetry to two Honeycomb datasets, _lacework-alliances-prod_ or _lacework-alliances-dev_. This is configured in the master Makefile using the **DATASET** variable. A Honeycomb API key must be passed during the make build:
 
 ``
 make HONEY_KEY=xxxxx
@@ -128,7 +128,7 @@ make upload
 10. Verify that a new Lacework Config cloud account is created.
 
 ### Release
-1. Update the master Makefile to change KEY_PREFIX and DATASET variables for testing. Change KEY_PREFIX to point to a test folder. Change DATASET to use the _lacework-alliances-dev_ Honeycomb dataset.
+1. Update the master Makefile to change KEY_PREFIX and DATASET variables for releasing. Change KEY_PREFIX to point the release folder. Change DATASET to use the _lacework-alliances-prod_ Honeycomb dataset.
 ```
 KEY_PREFIX := lacework-control-tower-cfn
 DATASET := lacework-alliances-prod
@@ -155,7 +155,7 @@ Examining these stacksets for operation results, stack instance results and para
 Two main Lambda functions are used to manage accounts. LaceworkSetupFunction manages the initial deployment of the integration. LaceworkAccountFunction manages setting up existing and new accounts. Both Lambda functions provide extensive debug messages that can be seen in their respective CloudWatch log streams.
 
 ## Reference Documentation
-- [Support Docs on docs.lacework.com](https://docs.lacework.com/aws-config-and-cloudtrail-integration-with-aws-control-tower-using-cloudformation#troubleshooting)
+- [Support docs on docs.lacework.com](https://docs.lacework.com/aws-config-and-cloudtrail-integration-with-aws-control-tower-using-cloudformation#troubleshooting)
 - [Implementation Guide on AWS](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Implementation-Guide-Lacework-Multi-Account-Security.pdf)
 - [Datasheet](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Datasheet-Lacework-Multi-Account-SEC.pdf)
 - [AWS Control Tower Getting Started](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html)
