@@ -159,3 +159,4 @@ Two main Lambda functions are used to manage accounts. LaceworkSetupFunction man
 - [Implementation Guide on AWS](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Implementation-Guide-Lacework-Multi-Account-Security.pdf)
 - [Datasheet](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Datasheet-Lacework-Multi-Account-SEC.pdf)
 - [AWS Control Tower Getting Started](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html)
+- [Demo Video](https://drive.google.com/file/d/1bmSHkDKQOsKvErW7_14w5SmFcloUmc43/view?usp=sharing)
