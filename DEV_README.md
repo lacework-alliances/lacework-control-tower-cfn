@@ -2,10 +2,10 @@
 
 ## Requirements
 
-- AWS Account - Current development uses the lacework-alliances AWS account.
+- AWS Development Account - Current development uses the lacework-alliances AWS account.
 - AWS CLI - The AWS CLI must be installed and configured with a user that can push files to S3 buckets.
 - Python3 - Python3 and Pip3 should be installed.
-- AWS Control Tower - [AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html) should be enabled on the AWS account.
+- AWS Control Tower and an [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) - [AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html) should be enabled on the [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts).
 - Email Service - AWS Control Tower uses federated email login. You need to create email accounts to test multiple accounts.
 
 ## Directory Structure and Files
@@ -119,7 +119,7 @@ DATASET := lacework-alliances-dev
 make HONEY_KEY=xxxxx
 make upload
 ```
-4. Go to your CloudFormation console and specify the control-tower-integration.template.yml in your S3 test folder location.
+4. Go to your CloudFormation console using the [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) and specify the control-tower-integration.template.yml in your S3 test folder location. The [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) maybe be different than your AWS development account.
 5. When entering the CloudFormation stack parameters, ensure **that the _Cloudformation S3 Key Prefix_ parameter is updated for the same test folder**.
 6. Execute the stack.
 7. Verify that the Lacework CloudTrail cloud account is created.
