@@ -1,6 +1,6 @@
 # Lacework AWS Control Tower Customization
 
-![Lacework](https://www.lacework.com/wp-content/uploads/2021/08/Lacework_Logo_RGB_01-1.svg)
+![Lacework](https://user-images.githubusercontent.com/6440106/152378397-90c862e9-19fb-4427-96d0-02ca6c87f4dd.png)
 
 ## Overview
 Lacework's AWS Control Tower Customization enables a seamless AWS account onboarding experience with the Lacework platform. Account administrators can automatically add Lacework's security auditing and monitoring to new AWS accounts during account creation. All the required Lacework and AWS account configuration that allows access to AWS configuration and CloudTrail logs are managed for you by this AWS Control Tower Customization.
