@@ -58,7 +58,7 @@ You need the following prerequisites to implement the Lacework AWS Control Tower
 
 1. Click on the following Launch Stack button to go to your CloudFormation console and launch the AWS Control Integration template.
 
-   [![Launch](https://dmhnzl5mp9mj6.cloudfront.net/application-management_awsblog/images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml)
+   [![Launch](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml)
 
    For most deployments, you only need the Basic Configuration parameters. Use the Advanced Configuration for customization.
    ![cloudformation-basic-configuration.png](https://docs.lacework.com/assets/images/cloudformation-basic-configuration-33cb25c21212c3aae060d8f6d064bed8.png)
