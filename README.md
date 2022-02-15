@@ -134,7 +134,7 @@ The following sections provide guidance for resolving issues with deploying the 
 You can monitor the CloudFormation events for the Lacework AWS Control Tower integration stack. Events may reveal issues with resource creation. The Lacework AWS Control Tower integration stack launches a main stack and three stacksets:
 
 **Main Deployment Stack:**
-* control-tower-integration.template.yml - Main stack that deploys all resources: IAM roles, access token credentials, IAM roles, SQS queues, Lambda functions and the stacksets below.
+* **control-tower-integration.template.yml** - Main stack that deploys all resources: IAM roles, access token credentials, IAM roles, SQS queues, Lambda functions and the stacksets below.
 
 **Centralized CloudTrail Cloud Account in Lacework:** (Applied once during initial deployment)
 * **lacework-aws-ct-audit.template.yml** -> **Lacework-Control-Tower-CloudTrail-Audit-Account-**_Lacework account_ - Creates a stack instance in the Audit account.
