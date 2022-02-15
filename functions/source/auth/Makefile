@@ -13,6 +13,7 @@ clean:
 
 build: clean
 	mkdir -p build
+	cp ../common/* build
 	buildid=$$(git describe --all --long | cut -d "/" -f 2); \
 	sed -e "s|\$$BUILD|$$buildid|g" -e "s|\$$DATASET|$(HONEY_DATASET)|g" auth.py > build/auth.py
 	pip3 install -r requirements.txt -t build

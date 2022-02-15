@@ -21,14 +21,12 @@ import boto3
 import json
 import logging
 import os
-import requests
+
+from lacework import send_lacework_api_access_token_request
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
-logging.getLogger("boto3").setLevel(logging.CRITICAL)
-logging.getLogger("botocore").setLevel(logging.CRITICAL)
-session = boto3.Session()
 
 
 def lambda_handler(event, context):
@@ -50,7 +48,7 @@ def refresh_access_token():
     lacework_api_credentials = os.environ['lacework_api_credentials']
     lacework_url = os.environ['lacework_url']
 
-    secret_client = session.client('secretsmanager')
+    secret_client = boto3.client('secretsmanager')
     try:
         secret_response = secret_client.get_secret_value(
             SecretId=lacework_api_credentials
@@ -95,19 +93,3 @@ def refresh_access_token():
         logger.error("Error setting up initial access token {}".format(e))
         return None
 
-
-def send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key):
-    request_payload = '''
-        {{
-            "keyId": "{}", 
-            "expiryTime": 86400
-        }}
-        '''.format(access_key_id)
-    logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
-    try:
-        return requests.post("https://" + lacework_url + "/api/v2/access/tokens",
-                             headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
-                             verify=True, data=request_payload)
-    except Exception as api_request_exception:
-        raise api_request_exception
-        return None

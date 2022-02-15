@@ -22,21 +22,22 @@ import boto3
 import json
 import logging
 import os
-import time
-
-import requests
 import urllib3
 from crhelper import CfnResource
 
-SUCCESS = "SUCCESS"
-FAILED = "FAILED"
+from aws import is_account_active, wait_for_stack_set_operation, get_account_id_by_name, send_cfn_fail, \
+    send_cfn_success, get_org_for_account
+from honeycomb import send_honeycomb_event
+from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account
+from util import error_exception
+
+HONEY_API_KEY = "$HONEY_KEY"
+DATASET = "$DATASET"
+BUILD_VERSION = "$BUILD"
 
 LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
 AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
 CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
-
-STACK_SET_SUCCESS_STATES = ["SUCCEEDED"]
-STACK_SET_RUNNING_STATES = ["RUNNING", "STOPPING"]
 
 DESCRIPTION = "Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
 "and automated AWS security monitoring."
@@ -46,9 +47,6 @@ http = urllib3.PoolManager()
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
-logging.getLogger("boto3").setLevel(logging.CRITICAL)
-logging.getLogger("botocore").setLevel(logging.CRITICAL)
-session = boto3.Session()
 
 helper = CfnResource(json_logging=False, log_level="INFO", boto_level="CRITICAL", sleep_on_delete=15)
 
@@ -72,14 +70,17 @@ def create(event, context):
     lacework_account_name = get_account_from_url(lacework_url)
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
     lacework_api_credentials = os.environ['lacework_api_credentials']
-    send_honeycomb_event(lacework_account_name, "create started", lacework_sub_account_name)
+    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "create started",
+                         lacework_sub_account_name)
 
     if not lacework_sub_account_name:
         logger.info("Sub account was not specified.")
 
-    logger.info("Lacework URL: {}, Lacework account: {}, Lacework Sub Account: {}".format(lacework_url,
-                                                                                          lacework_account_name,
-                                                                                          lacework_sub_account_name))
+    logger.info(
+        "Lacework URL: {}, Lacework account: {}, Lacework Sub Account: {}".format(
+            lacework_url,
+            lacework_account_name,
+            lacework_sub_account_name))
 
     lacework_account_sns = os.environ['lacework_account_sns']
     capability_type = os.environ['capability_type']
@@ -122,7 +123,8 @@ def create(event, context):
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
         return None
 
-    send_honeycomb_event(lacework_account_name, "create completed", lacework_sub_account_name)
+    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "create completed",
+                         lacework_sub_account_name)
     send_cfn_success(event, context)
     return None
 
@@ -133,6 +135,7 @@ def delete(event, context):
     lacework_url = os.environ['lacework_url']
     lacework_account_name = get_account_from_url(lacework_url)
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
+    lacework_org_sub_account_names = os.environ['lacework_org_sub_account_names']
     log_account_name = os.environ['log_account_name']
     audit_account_name = os.environ['audit_account_name']
     region_name = context.invoked_function_arn.split(":")[3]
@@ -140,9 +143,10 @@ def delete(event, context):
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
 
-    send_honeycomb_event(lacework_account_name, "delete started", lacework_sub_account_name)
+    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "delete started",
+                         lacework_sub_account_name)
 
-    cloudformation_client = session.client("cloudformation")
+    cloudformation_client = boto3.client("cloudformation")
 
     try:
         paginator = cloudformation_client.get_paginator("list_stack_instances")
@@ -157,7 +161,7 @@ def delete(event, context):
             acct = instance['Account']
             region = instance['Region']
             try:
-                if get_account_status_by_id(acct) == "ACTIVE":
+                if is_account_active(acct):
                     account_list.append(acct)
                     region_list.append(region)
                     logger.info("Adding acct {}".format(acct))
@@ -181,6 +185,16 @@ def delete(event, context):
             logger.info(response)
 
             wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
+
+            access_token = get_access_token(lacework_api_credentials)
+            if access_token is None:
+                logger.warning("Unable to get Lacework access token. Failed to delete Config cloud accounts.")
+            else:
+                for acct in account_list:
+                    org_name = get_org_for_account(acct, lacework_org_sub_account_names)
+                    sub_account = lacework_sub_account_name if not org_name else org_name
+                    delete_lw_cloud_account(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account, access_token)
+                    logger.info("Deleted acct {} to {} in Lacework".format(acct, sub_account))
 
     except Exception as stack_instance_exception:
         logger.warning("Problem occurred while deleting, StackSet {} instances still exist : {}"
@@ -219,8 +233,8 @@ def delete(event, context):
     except Exception as stack_set_exception:
         logger.warning("Problem occurred while deleting StackSet {} : {}".format(audit_stack_set_name,
                                                                                  stack_set_exception))
-    log_stack_set_name = LOG_NAME_PREFIX + \
-                         (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+    log_stack_set_name = LOG_NAME_PREFIX + (
+        lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
     try:
         log_account_id = get_account_id_by_name(log_account_name)
         if log_account_id is not None:
@@ -249,174 +263,21 @@ def delete(event, context):
     try:
         access_token = get_access_token(lacework_api_credentials)
         if access_token is None:
-            logger.warning("Unable to get Lacework access token. Failed to delete cloud account {}.")
+            logger.warning("Unable to get Lacework access token. Failed to delete cloud account {}."
+                           .format(log_stack_set_name))
         else:
-            delete_lw_cloud_account_for_ct(log_stack_set_name, lacework_url, lacework_sub_account_name,
-                                           access_token)
+            delete_lw_cloud_account(log_stack_set_name, lacework_url, lacework_sub_account_name, access_token)
     except Exception as delete_exception:
         logger.warning("Failed to delete CloudTrail cloud account for {} {}.", lacework_account_name, delete_exception)
 
-    send_honeycomb_event(lacework_account_name, "delete completed", lacework_sub_account_name)
+    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "delete completed",
+                         lacework_sub_account_name)
     send_cfn_success(event, context)
     return None
 
 
-def send_cfn_response(event, context, response_status, response_data, physical_resource_id=None, no_echo=False,
-                      reason=None):
-    response_url = event['ResponseURL']
-
-    logger.info(response_url)
-
-    response_body = {
-        'Status': response_status,
-        'Reason': reason or "See the details in CloudWatch Log Stream: {}".format(context.log_stream_name),
-        'PhysicalResourceId': physical_resource_id or context.log_stream_name,
-        'StackId': event['StackId'],
-        'RequestId': event['RequestId'],
-        'LogicalResourceId': event['LogicalResourceId'],
-        'NoEcho': no_echo,
-        'Data': response_data
-    }
-
-    json_response_body = json.dumps(response_body)
-
-    logger.info("Response body: {}".format(json_response_body))
-
-    headers = {
-        'content-type': '',
-        'content-length': str(len(json_response_body))
-    }
-
-    try:
-        response = http.request('PUT', response_url, headers=headers, body=json_response_body)
-        logger.info("CFN response status code: {}".format(response.status))
-
-    except Exception as e:
-        logger.error("send_cfn_response error {}".format(e))
-
-
-def setup_initial_access_token(lacework_url, lacework_api_credentials):
-    logger.info("setup.setup_initial_access_token called.")
-    secret_client = session.client('secretsmanager')
-    secret_response = secret_client.get_secret_value(
-        SecretId=lacework_api_credentials
-    )
-    if 'SecretString' not in secret_response:
-        raise error_exception("SecretString not found in {}".format(lacework_api_credentials))
-
-    secret_string_dict = json.loads(secret_response['SecretString'])
-    access_key_id = secret_string_dict['AccessKeyID']
-    secret_key = secret_string_dict['SecretKey']
-
-    access_token_response = send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key)
-    logger.info('API response code : {}'.format(access_token_response.status_code))
-    logger.debug('API response : {}'.format(access_token_response.text))
-    if access_token_response.status_code == 201:
-        payload_response = access_token_response.json()
-        expires_at = payload_response['expiresAt']
-        token = payload_response['token']
-        secret_string_dict['AccessToken'] = token
-        secret_string_dict['TokenExpiry'] = expires_at
-        secret_client.update_secret(SecretId=lacework_api_credentials, SecretString=json.dumps(secret_string_dict))
-        logger.info("New access token saved to secrets manager.")
-        return token
-    else:
-        raise error_exception("Generate access key failure {} {}".format(access_token_response.status_code,
-                                                                         access_token_response.text))
-
-
-def get_access_token(lacework_api_credentials):
-    logger.info("setup.get_access_token called.")
-
-    secret_client = session.client('secretsmanager')
-    secret_response = secret_client.get_secret_value(
-        SecretId=lacework_api_credentials
-    )
-    if 'SecretString' not in secret_response:
-        raise error_exception("SecretString not found in {}".format(lacework_api_credentials))
-
-    secret_string_dict = json.loads(secret_response['SecretString'])
-    access_token = secret_string_dict['AccessToken']
-
-    return access_token
-
-
-def add_lw_cloud_account_for_ct(integration_name, lacework_url, lacework_sub_account_name, access_token,
-                                external_id,
-                                role_arn, sqs_queue_url):
-    logger.info("setup.add_lw_cloud_account_for_ct")
-
-    request_payload = '''
-    {{
-        "name": "{}", 
-        "type": "AwsCtSqs",
-        "enabled": 1,
-        "data": {{
-            "crossAccountCredentials": {{
-                "externalId": "{}",
-                "roleArn": "{}"
-            }},
-            "queueUrl": "{}"
-        }}
-    }}
-    '''.format(integration_name, external_id, role_arn, sqs_queue_url)
-    logger.info('Generate create account payload : {}'.format(request_payload))
-
-    add_response = send_lacework_api_post_request(lacework_url, "api/v2/CloudAccounts", access_token,
-                                                  request_payload, lacework_sub_account_name)
-    logger.info('API response code : {}'.format(add_response.status_code))
-    logger.info('API response : {}'.format(add_response.text))
-    if add_response.status_code != 201:
-        raise error_exception("API response error adding CloudTrail account {} {}".format(add_response.status_code,
-                                                                                          add_response.text))
-
-
-def delete_lw_cloud_account_for_ct(integration_name, lacework_url, lacework_sub_account_name, access_token):
-    logger.info("setup.delete_lw_cloud_account_for_ct")
-
-    search_request_payload = '''
-    {{
-        "filters": [
-            {{
-                "field": "name",
-                "expression": "eq",
-                "value": "{}"
-            }}
-        ],
-        "returns": [
-            "intgGuid"
-        ]
-    }}
-    '''.format(integration_name)
-    logger.info('Generate search account payload : {}'.format(search_request_payload))
-
-    search_response = send_lacework_api_post_request(lacework_url, "api/v2/CloudAccounts/search", access_token,
-                                                     search_request_payload, lacework_sub_account_name)
-    logger.info('API response code : {}'.format(search_response.status_code))
-    logger.info('API response : {}'.format(search_response.text))
-    if search_response.status_code == 200:
-        search_response_dict = json.loads(search_response.text)
-        data_dict = search_response_dict['data'];
-        if len(data_dict) == 0:
-            logger.warning("Cloud account with integration name {} was not found.".format(integration_name))
-            return False
-        elif len(data_dict) > 1:
-            logger.warning(
-                "More than one cloud account with integration name {} was found.".format(integration_name))
-            return False
-        intg_guid = data_dict[0]['intgGuid']
-
-        delete_response = send_lacework_api_delete_request(lacework_url, "api/v2/CloudAccounts/"
-                                                           + intg_guid, access_token, lacework_sub_account_name)
-        logger.info('API response code : {}'.format(delete_response.status_code))
-        logger.info('API response : {}'.format(delete_response.text))
-        if delete_response.status_code != 204:
-            raise error_exception(
-                "API response error deleting CloudTrail account {} {}".format(delete_response.status_code,
-                                                                              delete_response.text))
-
-
-def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account_name, region_name, management_account_id, log_account_name,
+def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account_name, region_name,
+                     management_account_id, log_account_name,
                      kms_key_id_arn, log_account_template, audit_account_name, audit_account_template, access_token,
                      external_id, existing_cloudtrail):
     logger.info("setup.setup_cloudtrail called.")
@@ -443,7 +304,7 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
     except Exception as trail_exception:
         raise error_exception("Error getting cloudtrail {} {}.".format(existing_cloudtrail, trail_exception))
 
-    cloudformation_client = session.client("cloudformation")
+    cloudformation_client = boto3.client("cloudformation")
 
     try:
         lacework_account_name = get_account_from_url(lacework_url)
@@ -550,7 +411,8 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
         cloudformation_client.describe_stack_set(StackSetName=audit_stack_set_name)
         logger.info("Stack set {} already exists".format(audit_stack_set_name))
     except Exception as describe_exception:
-        logger.info("Stack set {} does not exist, creating it now. {}".format(audit_stack_set_name, describe_exception))
+        logger.info(
+            "Stack set {} does not exist, creating it now. {}".format(audit_stack_set_name, describe_exception))
         try:
             logger.info("Existing trail: s3: {} topic: {}".format(cloudtrail_s3_bucket, cloudtrail_sns_topic))
             audit_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
@@ -620,7 +482,7 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
                  member_account_template,
                  management_account_id, region_name, access_token, external_id, lacework_custom_sns):
     logger.info("setup.setup_config called.")
-    cloudformation_client = session.client("cloudformation")
+    cloudformation_client = boto3.client("cloudformation")
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
                                 (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
@@ -688,98 +550,19 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
             logger.info("Chose to deploy to existing accounts.")
             try:
                 account_list = []
-
                 paginator = cloudformation_client.get_paginator('list_stack_instances')
                 page_iterator = paginator.paginate(StackSetName="AWSControlTowerBP-BASELINE-CLOUDTRAIL")
                 for page in page_iterator:
                     for inst in page['Summaries']:
-                        acct = inst['Account']
-                        try:
-                            status = get_account_status_by_id(acct)
-                            logger.info("Acct {} is {}.".format(acct, status))
-                            if status == "ACTIVE":
-                                account_list.append(inst['Account'])
-                                logger.info("Adding acct {}".format(acct))
-                            else:
-                                logger.info("Skipping acct {}".format(acct))
-                        except Exception as account_status_exception:
-                            logger.warning("Account status exception for acct {} {}".format(acct,
-                                                                                            account_status_exception))
-
-                logger.info("Accounts to deploy {}.".format(account_list))
+                        account_list.append(inst['Account'])
                 if len(account_list) > 0:
-                    logger.info("New accounts : {}".format(account_list))
-                    send_honeycomb_event(lacework_account_name, "add {} existing".format(len(account_list)),
-                                         lacework_sub_account_name)
-                    sns_client = session.client("sns")
-                    message_body = {
-                        config_stack_set_name: {"target_accounts": account_list, "target_regions": [region_name]}}
-                    try:
-                        sns_response = sns_client.publish(
-                            TopicArn=lacework_account_sns,
-                            Message=json.dumps(message_body))
-
-                        logger.info("Queued for stackset instance creation: {}".format(sns_response))
-                    except Exception as sns_exception:
-                        raise error_exception(
-                            "Failed to send queue for stackset instance creation: {}".format(sns_exception))
-                else:
-                    logger.info("No additional stackset instances requested")
+                    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                         "add {} existing".format(len(account_list)), lacework_sub_account_name)
+                    send_to_account_function(account_list, [region_name], config_stack_set_name, lacework_account_sns)
             except Exception as create_exception:
-                raise error_exception("Exception creating stack instance with {}".format(create_exception))
+                raise error_exception("Exception creating stack instances with {}".format(create_exception))
         else:
             logger.info("Chose NOT to deploy to existing accounts.")
-
-
-def get_account_id_by_name(name):
-    logger.info("setup.get_account_id_by_name called.")
-    org_client = session.client('organizations')
-    paginator = org_client.get_paginator("list_accounts")
-    page_iterator = paginator.paginate()
-    for page in page_iterator:
-        for acct in page['Accounts']:
-            if acct['Name'] == name:
-                return acct['Id']
-
-    return None
-
-
-def get_account_status_by_id(id):
-    logger.info("setup.get_account_status_by_id called.")
-    org_client = session.client('organizations')
-    try:
-        response = org_client.describe_account(
-            AccountId=id
-        )
-        return response['Account']['Status']
-    except Exception as describe_exception:
-        logger.error("Exception getting account status on {} {}.".format(id, describe_exception))
-        return "UNKNOWN"
-
-    return None
-
-
-def wait_for_stack_set_operation(stack_set_name, operation_id):
-    logger.info("Waiting for StackSet Operation {} on StackSet {} to finish".format(operation_id, stack_set_name))
-    cloudformation_client = session.client("cloudformation")
-    finished = False
-    status = ""
-    while not finished:
-        time.sleep(15)
-        status = \
-            cloudformation_client.describe_stack_set_operation(StackSetName=stack_set_name, OperationId=operation_id)[
-                "StackSetOperation"
-            ]["Status"]
-        if status in STACK_SET_RUNNING_STATES:
-            logger.info("{} {} still running.".format(stack_set_name, operation_id))
-        else:
-            finished = True
-
-    logger.info("StackSet Operation finished with Status: {}".format(status))
-    if status not in STACK_SET_SUCCESS_STATES:
-        return False
-    else:
-        return True
 
 
 def get_account_from_url(lacework_url):
@@ -792,7 +575,7 @@ def get_service_token(lacework_aws_account_id, lacework_url, region_name, lacewo
     elif not lacework_custom_sns:
         return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":prodn-customer-cloudformation"
     else:
-        return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":"+lacework_custom_sns
+        return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":" + lacework_custom_sns
 
 
 def get_sqs_queue_arn(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):
@@ -836,90 +619,17 @@ def get_audit_stack_name(lacework_account_name, lacework_sub_account_name):
         return AUDIT_NAME_PREFIX + lacework_sub_account_name
 
 
-def send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key):
-    request_payload = '''
-        {{
-            "keyId": "{}", 
-            "expiryTime": 86400
-        }}
-        '''.format(access_key_id)
-    logger.debug('Generate access key payload : {}'.format(json.dumps(request_payload)))
+def send_to_account_function(account_list, region_list, config_stack_set_name, lacework_account_sns):
+    logger.info("setup.send_to_account_function accounts: {}".format(account_list))
+    sns_client = boto3.client("sns")
+    message_body = {
+        config_stack_set_name: {"target_accounts": account_list, "target_regions": region_list}}
     try:
-        return requests.post("https://" + lacework_url + "/api/v2/access/tokens",
-                             headers={'X-LW-UAKS': secret_key, 'content-type': 'application/json'},
-                             verify=True, data=request_payload)
-    except Exception as api_request_exception:
-        raise api_request_exception
+        sns_response = sns_client.publish(
+            TopicArn=lacework_account_sns,
+            Message=json.dumps(message_body))
 
-
-def send_lacework_api_post_request(lacework_url, api, access_token, request_payload, sub_account_name):
-    try:
-        if not sub_account_name:
-            return requests.post("https://" + lacework_url + "/" + api,
-                                 headers={'Authorization': access_token, 'content-type': 'application/json'},
-                                 verify=True, data=request_payload)
-        else:
-            return requests.post("https://" + lacework_url + "/" + api,
-                                 headers={'Authorization': access_token, 'content-type': 'application/json',
-                                          'Account-Name': sub_account_name},
-                                 verify=True, data=request_payload)
-    except Exception as api_request_exception:
-        raise api_request_exception
-
-
-def send_lacework_api_delete_request(lacework_url, api, access_token, sub_account_name):
-    try:
-        if not sub_account_name:
-            return requests.delete("https://" + lacework_url + "/" + api,
-                                   headers={'Authorization': access_token},
-                                   verify=True)
-        else:
-            return requests.delete("https://" + lacework_url + "/" + api,
-                                   headers={'Authorization': access_token,
-                                            'Account-Name': sub_account_name},
-                                   verify=True)
-    except Exception as api_request_exception:
-        raise api_request_exception
-
-
-def error_exception(msg):
-    logger.error(msg)
-    return Exception(msg)
-
-
-def send_cfn_fail(event, context, msg):
-    logger.error(msg)
-    send_cfn_response(event, context, FAILED, {"Message": msg})
-
-
-def send_cfn_success(event, context):
-    send_cfn_response(event, context, SUCCESS, {"Message": "SUCCESS"})
-
-
-def send_honeycomb_event(account, event, subaccount="000000", eventdata="{}"):
-    logger.info("setup.send_honeycomb_event called.")
-
-    try:
-        payload = '''
-        {{
-            "account": "{}",
-            "sub-account": "{}",
-            "tech-partner": "AWS",
-            "integration-name": "lacework-aws-control-tower-cloudformation",
-            "version": "$BUILD",
-            "service": "AWS Control Tower",
-            "install-method": "cloudformation",
-            "function": "setup.py",
-            "event": "{}",
-            "event-data": {}
-        }}
-        '''.format(account, subaccount, event, eventdata)
-        logger.info('Generate payload : {}'.format(payload))
-        resp = requests.post("https://api.honeycomb.io/1/events/$DATASET",
-                             headers={'X-Honeycomb-Team': '$HONEY_KEY',
-                                      'content-type': 'application/json'},
-                             verify=True, data=payload)
-        logger.info("Honeycomb response {} {}".format(resp, resp.content))
-
-    except Exception as e:
-        logger.warning("Get error sending to Honeycomb: {}.".format(e))
+        logger.info("Queued for stackset instance creation: {}".format(sns_response))
+    except Exception as sns_exception:
+        raise error_exception(
+            "Failed to send queue for stackset instance creation: {}".format(sns_exception))

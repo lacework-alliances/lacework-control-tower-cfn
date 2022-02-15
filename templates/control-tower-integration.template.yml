@@ -7,7 +7,6 @@ Metadata:
           default: "Basic Configuration"
         Parameters:
           - LaceworkURL
-          - LaceworkSubAccountName
           - LaceworkAccessKeyID
           - LaceworkSecretKey
           - CapabilityType
@@ -16,6 +15,14 @@ Metadata:
           - KMSKeyIdentifierARN
           - LogAccountName
           - AuditAccountName
+      - Label:
+          default: "Organization Configuration"
+        Parameters:
+          - LaceworkOrgSubAccountNames
+      - Label:
+          default: "Single Sub-Account Configuration"
+        Parameters:
+          - LaceworkSubAccountName
       - Label:
           default: "Advanced Configuration"
         Parameters:
@@ -29,6 +36,8 @@ Metadata:
     ParameterLabels:
       LaceworkURL:
         default: Your Lacework URL
+      LaceworkOrgSubAccountNames:
+        default: Lacework Organization Sub-Account Names
       LaceworkSubAccountName:
         default: Lacework Sub-Account Name
       LaceworkAccessKeyID:
@@ -69,9 +78,14 @@ Parameters:
     MinLength: '1'
     AllowedPattern: '(.+?)\.lacework\.net'
     ConstraintDescription: "Invalid Lacework URL."
+  LaceworkOrgSubAccountNames:
+    Type: String
+    Description: "Use for AWS OU to Lacework sub-accounts mapping. Provide a commas-separated list. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Organization Admin."
+    AllowedPattern: '^$|^[a-zA-Z0-9.,]+(?:-[a-zA-Z0-9.]+)*$'
+    ConstraintDescription: "Invalid Lacework account name entered. The account name may contain alphanumeric characters and dashes only."
   LaceworkSubAccountName:
     Type: String
-    Description: "If Lacework Organizations is enabled, enter the sub-account. Leave blank if Lacework Organizations is not enabled."
+    Description: "Use for a single sub-account use only. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Sub-Account."
     AllowedPattern: '^$|^[a-zA-Z0-9.]+(?:-[a-zA-Z0-9.]+)*$'
     ConstraintDescription: "Invalid Lacework account name entered. The account name may contain alphanumeric characters and dashes only."
   LaceworkAccessKeyID:
@@ -284,6 +298,7 @@ Resources:
         Variables:
           lacework_url: !Ref LaceworkURL
           lacework_sub_account_name: !Ref LaceworkSubAccountName
+          lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_account_sns: !Ref LaceworkAccountSNS
           capability_type: !Ref CapabilityType
@@ -470,6 +485,14 @@ Resources:
               - secretsmanager:GetSecretValue
             Resource:
               Ref: LaceworkApiCredentials
+          - Sid: QueryAccounts
+            Effect: Allow
+            Action:
+              - organizations:DescribeAccount
+              - organizations:DescribeOrganization
+              - organizations:DescribeOrganizationalUnit
+              - organizations:ListParents
+            Resource: "*"
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
 
@@ -482,11 +505,12 @@ Resources:
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount.zip']]
       Handler: account.lambda_handler
       Runtime: python3.7
-      Timeout: 120
+      Timeout: 900
       Environment:
         Variables:
           lacework_url: !Ref LaceworkURL
           lacework_sub_account_name: !Ref LaceworkSubAccountName
+          lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkAccountFunctionRole.Arn

@@ -1,10 +1,10 @@
 
 BUCKET_PREFIX := lacework-alliances
-KEY_PREFIX := lacework-control-tower-cfn
+KEY_PREFIX := lacework-control-tower-cfn-test
 PACKAGES_PREFIX := lambda/
 CFT_PREFIX := templates
 CFT_DIR := templates
-DATASET := lacework-alliances-prod
+DATASET := lacework-alliances-dev
 
 PROFILE ?= ct
 REGION ?= us-west-2

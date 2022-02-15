@@ -15,7 +15,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-from datetime import datetime
+import random
+import string
 
 import boto3
 import json
@@ -23,16 +24,20 @@ import logging
 import os
 import time
 
-import requests
+from aws import list_stack_instance_by_account_region, is_account_valid, wait_for_stack_set_operation, \
+    get_org_for_account
+from honeycomb import send_honeycomb_event
+from lacework import get_account_from_url, get_access_token, add_lw_cloud_account_for_cfg
+
+HONEY_API_KEY = "$HONEY_KEY"
+DATASET = "$DATASET"
+BUILD_VERSION = "$BUILD"
 
 CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
-logging.getLogger("boto3").setLevel(logging.CRITICAL)
-logging.getLogger("botocore").setLevel(logging.CRITICAL)
-session = boto3.Session()
 
 
 def lambda_handler(event, context):
@@ -62,18 +67,18 @@ def lifecycle_eventbridge_processing(event):
     logger.info("account.lifecycle_processing called.")
     logger.info(json.dumps(event))
     if event['detail']['serviceEventDetails']['createManagedAccountStatus']['state'] == "SUCCEEDED":
-        cloud_formation_client = session.client("cloudformation")
         account_id = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountId']
         region = event['detail']['awsRegion']
         lacework_url = os.environ['lacework_url']
         lacework_account_name = get_account_from_url(lacework_url)
         lacework_sub_account_name = os.environ['lacework_sub_account_name']
-        send_honeycomb_event(lacework_account_name, "add account", lacework_sub_account_name)
+        send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "add account",
+                             lacework_sub_account_name)
         config_stack_set_name = CONFIG_NAME_PREFIX + \
-                                (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
-        stack_set_instances = list_stack_instance_by_account_region(session, config_stack_set_name, account_id, region)
+            (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
+        stack_set_instances = list_stack_instance_by_account_region(config_stack_set_name, account_id, region)
 
-        logger.info("Processing Lifecycle event for {} in ".format(account_id, region))
+        logger.info("Processing Lifecycle event for {} in {}".format(account_id, region))
         # stack_set instance does not exist, create a new one
         if len(stack_set_instances) == 0:
             logger.info("Create new stack set instance for {} {} {}".format(config_stack_set_name, account_id,
@@ -92,8 +97,12 @@ def lifecycle_eventbridge_processing(event):
 
 def cfn_stack_set_processing(messages):
     logger.info("account.stack_set_processing called.")
-    cloud_formation_client = session.client("cloudformation")
-    sns_client = session.client("sns")
+    cloud_formation_client = boto3.client("cloudformation")
+    sns_client = boto3.client("sns")
+    lacework_url = os.environ['lacework_url']
+    lacework_account_name = get_account_from_url(lacework_url)
+    lacework_sub_account_name = os.environ['lacework_sub_account_name']
+    lacework_org_sub_account_names = os.environ['lacework_org_sub_account_names']
     lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
     access_token = get_access_token(lacework_api_credentials)
@@ -126,13 +135,27 @@ def cfn_stack_set_processing(messages):
                         break
 
             if stack_operations:
+                valid_account_list = []
+                for acct in param_accounts:
+                    if is_account_valid(acct, lacework_org_sub_account_names):
+                        logger.info("Adding valid acct {}".format(acct))
+                        valid_account_list.append(acct)
+                    else:
+                        logger.info("Skipping acct {}".format(acct))
+                external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 response = cloud_formation_client.create_stack_instances(StackSetName=config_stack_set_name,
-                                                                         Accounts=param_accounts,
+                                                                         Accounts=valid_account_list,
                                                                          Regions=param_regions,
                                                                          ParameterOverrides=[
                                                                              {
                                                                                  "ParameterKey": "AccessToken",
                                                                                  "ParameterValue": access_token,
+                                                                                 "UsePreviousValue": False,
+                                                                                 "ResolvedValue": "string"
+                                                                             },
+                                                                             {
+                                                                                 "ParameterKey": "ExternalID",
+                                                                                 "ParameterValue": external_id,
                                                                                  "UsePreviousValue": False,
                                                                                  "ResolvedValue": "string"
                                                                              }
@@ -142,7 +165,17 @@ def cfn_stack_set_processing(messages):
                                                                              'FailureToleranceCount': 999
                                                                          })
 
-                logger.info("stack_set instance created {}".format(response))
+                wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
+                logger.info("Stack_set instance created {}".format(response))
+                time.sleep(30)
+                for acct in valid_account_list:
+                    org_name = get_org_for_account(acct, lacework_org_sub_account_names)
+                    sub_account = lacework_sub_account_name if not org_name else org_name
+                    role_arn = get_cross_account_access_role(lacework_account_name, sub_account, acct)
+                    add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account, access_token,
+                                                 external_id,
+                                                 role_arn, acct)
+                    logger.info("Added acct {} to {} in Lacework".format(acct, sub_account))
             else:
                 logger.warning("Existing stack_set operations still running")
                 message_body = {config_stack_set_name: messages[config_stack_set_name]}
@@ -157,89 +190,15 @@ def cfn_stack_set_processing(messages):
                 except Exception as sns_exception:
                     logger.error("Failed to send queue for stack_set instance creation: {}".format(sns_exception))
 
-        except cloud_formation_client.exceptions.stack_setNotFoundException as describe_exception:
+        except Exception as describe_exception:
             logger.error("Exception getting stack set, {}".format(describe_exception))
             raise describe_exception
 
 
-def list_stack_instance_by_account_region(target_session, config_stack_set_name, account_id, region):
-    logger.info("account.list_stack_instance_by_account_region called.")
-    logger.info(target_session)
-    try:
-        cfn_client = target_session.client("cloudformation")
-        stack_set_result = cfn_client.list_stack_instances(
-            StackSetName=config_stack_set_name,
-            StackInstanceAccount=account_id,
-            StackInstanceRegion=region
-        )
-
-        logger.info("stack_set_result: {}".format(stack_set_result))
-        if stack_set_result and "Summaries" in stack_set_result:
-            stack_set_list = stack_set_result['Summaries']
-            while "NextToken" in stack_set_result:
-                stack_set_result = cfn_client.list_stack_set_instance(
-                    NextToken=stack_set_result['NextToken']
-                )
-                stack_set_list.append(stack_set_result['Summaries'])
-
-            return stack_set_list
-        else:
-            return False
-    except Exception as e:
-        logger.error("List Stack Instance error: {}.".format(e))
-        return False
-
-
-def get_access_token(lacework_api_credentials):
-    logger.info("account.get_access_token called.")
-
-    secret_client = session.client('secretsmanager')
-    try:
-        secret_response = secret_client.get_secret_value(
-            SecretId=lacework_api_credentials
-        )
-        if 'SecretString' not in secret_response:
-            logger.error("SecretString not found in {}".format(lacework_api_credentials))
-            return None
-
-        secret_string_dict = json.loads(secret_response['SecretString'])
-        access_token = secret_string_dict['AccessToken']
-
-        return access_token
-
-    except Exception as e:
-        logger.error("Get access token error: {}.".format(e))
-        return None
-
-
-def get_account_from_url(lacework_url):
-    return lacework_url.split('.')[0]
-
-
-def send_honeycomb_event(account, event, subaccount="000000", eventdata="{}"):
-    logger.info("account.send_honeycomb_event called.")
-
-    try:
-        payload = '''
-        {{
-            "account": "{}",
-            "sub-account": "{}",
-            "tech-partner": "AWS",
-            "integration-name": "lacework-aws-control-tower-cloudformation",
-            "version": "$BUILD",
-            "service": "AWS Control Tower",
-            "install-method": "cloudformation",
-            "function": "account.py",
-            "event": "{}",
-            "event-data": {}
-        }}
-        '''.format(account, subaccount, event, eventdata)
-        logger.info('Generate payload : {}'.format(payload))
-        resp = requests.post("https://api.honeycomb.io/1/events/$DATASET",
-                             headers={'X-Honeycomb-Team': '$HONEY_KEY',
-                                      'content-type': 'application/json'},
-                             verify=True, data=payload)
-        logger.info ("Honeycomb response {} {}".format(resp, resp.content))
-
-    except Exception as e:
-        logger.warning("Get error sending to Honeycomb: {}.".format(e))
+def get_cross_account_access_role(lacework_account_name, lacework_sub_account_name, acct_id):
+    if not lacework_sub_account_name:
+        return "arn:aws:iam::" + acct_id + ":role/" \
+               + lacework_account_name + "-laceworkcwsrole-sa"
+    else:
+        return "arn:aws:iam::" + acct_id + ":role/" \
+               + lacework_sub_account_name + "-laceworkcwsrole-sa"
