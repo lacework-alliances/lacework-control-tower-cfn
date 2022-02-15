@@ -58,7 +58,7 @@ You need the following prerequisites to implement the Lacework AWS Control Tower
 
 1. Click on the following Launch Stack button to go to your CloudFormation console and launch the AWS Control Integration template.
 
-   <a href="https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml"><img src="https://dmhnzl5mp9mj6.cloudfront.net/application-management_awsblog/images/cloudformation-launch-stack.png"></img></a>
+   [![Launch](https://dmhnzl5mp9mj6.cloudfront.net/application-management_awsblog/images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml)
 
    For most deployments, you only need the Basic Configuration parameters. Use the Advanced Configuration for customization.
    ![cloudformation-basic-configuration.png](https://docs.lacework.com/assets/images/cloudformation-basic-configuration-33cb25c21212c3aae060d8f6d064bed8.png)
@@ -152,6 +152,9 @@ Two main Lambda functions are used to manage accounts. LaceworkSetupFunction man
 ![AWS Control Tower CloudFormation Lambda](https://docs.lacework.com/assets/images/aws-control-tower-coudformation-lambda-b200f53d9aa57d4b38f7b1ab09a6b23c.png)
 
 ![cloudwatch](https://user-images.githubusercontent.com/6440106/153986709-96988d28-3996-4450-9aa5-0c6218585b0f.png)
+
+#### Lacework API Access Keys
+The AWS Control Tower uses the Lacework API to manage the cloud accounts. The API Access Key, Secret and Access Token are stored using AWS Secrets Manager. The secret name is _LaceworkApiCredentials_. The Auth Lambda function periodically refreshes the access token.
 
 ## FAQ
 
