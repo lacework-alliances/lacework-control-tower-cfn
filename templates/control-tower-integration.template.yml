@@ -16,15 +16,15 @@ Metadata:
           - LogAccountName
           - AuditAccountName
       - Label:
-          default: "Organization Configuration"
+          default: "Organization Configuration (Optional)"
         Parameters:
           - LaceworkOrgSubAccountNames
       - Label:
-          default: "Single Sub-Account Configuration"
+          default: "Single Sub-Account Configuration (Optional)"
         Parameters:
           - LaceworkSubAccountName
       - Label:
-          default: "Advanced Configuration"
+          default: "Advanced Configuration (Optional)"
         Parameters:
           - S3BucketName
           - S3KeyPrefix
@@ -37,7 +37,7 @@ Metadata:
       LaceworkURL:
         default: Your Lacework URL
       LaceworkOrgSubAccountNames:
-        default: Lacework Organization Sub-Account Names
+        default: AWS Organizations to Lacework Sub-Account Names
       LaceworkSubAccountName:
         default: Lacework Sub-Account Name
       LaceworkAccessKeyID:
@@ -80,9 +80,9 @@ Parameters:
     ConstraintDescription: "Invalid Lacework URL."
   LaceworkOrgSubAccountNames:
     Type: String
-    Description: "Use for AWS OU to Lacework sub-accounts mapping. Provide a commas-separated list. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Organization Admin."
-    AllowedPattern: '^$|^[a-zA-Z0-9.,]+(?:-[a-zA-Z0-9.]+)*$'
-    ConstraintDescription: "Invalid Lacework account name entered. The account name may contain alphanumeric characters and dashes only."
+    Description: "Use for AWS organizations to Lacework sub-accounts mapping. Provide a commas-separated list. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Organization Admin."
+    AllowedPattern: '^$|^[a-zA-Z0-9.,]+(?:-[a-zA-Z0-9.,]+)*$'
+    ConstraintDescription: "Invalid list entered. The sub-account name may contain alphanumeric characters and dashes only."
   LaceworkSubAccountName:
     Type: String
     Description: "Use for a single sub-account use only. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Sub-Account."
@@ -391,6 +391,14 @@ Resources:
             Effect: Allow
             Action:
               - organizations:ListAccounts
+            Resource: "*"
+          - Sid: QueryAccounts
+            Effect: Allow
+            Action:
+              - organizations:DescribeAccount
+              - organizations:DescribeOrganization
+              - organizations:DescribeOrganizationalUnit
+              - organizations:ListParents
             Resource: "*"
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'

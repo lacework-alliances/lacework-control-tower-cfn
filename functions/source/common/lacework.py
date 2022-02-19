@@ -63,6 +63,50 @@ def get_access_token(lacework_api_credentials):
     return access_token
 
 
+def lw_cloud_account_exists_in_orgs(integration_name, lacework_url, access_token, orgs):
+    logger.info("lacework.lw_cloud_account_exists_in_orgs")
+    org_list = [x.strip() for x in orgs.split(',')]
+    for org in org_list:
+        intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, org, access_token)
+        if intg_guid:
+            return True
+
+    return False
+
+
+def delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, sub_account):
+    logger.info("lacework.delete_lw_cloud_account_by_int_guid")
+    delete_response = send_lacework_api_delete_request(lacework_url, "api/v2/CloudAccounts/"
+                                                       + intg_guid, access_token, sub_account)
+    logger.info('API response code : {}'.format(delete_response.status_code))
+    logger.info('API response : {}'.format(delete_response.text))
+    if delete_response.status_code != 204:
+        raise error_exception(
+            "API response error deleting Config account {} {}".format(delete_response.status_code,
+                                                                      delete_response.text))
+
+
+def delete_lw_cloud_account_in_orgs(integration_name, lacework_url, access_token, orgs):
+    logger.info("lacework.lw_cloud_account_exists_in_orgs")
+    org_list = [x.strip() for x in orgs.split(',')]
+    for org in org_list:
+        intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, org, access_token)
+        if intg_guid:
+            delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, org)
+            return None
+    logger.warning("integration name {} not found for deletion.")
+
+
+def lw_cloud_account_exists(integration_name, lacework_url, access_token, sub_account=""):
+    logger.info("lacework.lw_cloud_account_exists")
+    intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token)
+
+    if intg_guid:
+        return True
+    else:
+        return False
+
+
 def add_lw_cloud_account_for_ct(integration_name, lacework_url, sub_account, access_token,
                                 external_id,
                                 role_arn, sqs_queue_url):
@@ -93,7 +137,7 @@ def add_lw_cloud_account_for_ct(integration_name, lacework_url, sub_account, acc
                                                                                           add_response.text))
 
 
-def add_lw_cloud_account_for_cfg(integration_name, lacework_url, sub_account, access_token,
+def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, access_token,
                                  external_id,
                                  role_arn, aws_account_id):
     logger.info("lacework.add_lw_cloud_account_for_cfg")
@@ -115,7 +159,7 @@ def add_lw_cloud_account_for_cfg(integration_name, lacework_url, sub_account, ac
     logger.info('Generate create account payload : {}'.format(request_payload))
 
     add_response = send_lacework_api_post_request(lacework_url, "api/v2/CloudAccounts", access_token,
-                                                  request_payload, sub_account)
+                                                  request_payload, account_name)
     logger.info('API response code : {}'.format(add_response.status_code))
     logger.info('API response : {}'.format(add_response.text))
     if add_response.status_code != 201:
@@ -125,6 +169,17 @@ def add_lw_cloud_account_for_cfg(integration_name, lacework_url, sub_account, ac
 
 def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_token):
     logger.info("lacework.delete_lw_cloud_account")
+
+    intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token)
+
+    if intg_guid:
+        delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, sub_account)
+    else:
+        error_exception("Cloud account {} not deleted. int_guid not found.".format(integration_name))
+
+
+def search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token):
+    logger.info("lacework.search_lw_cloud_account_intguid_by_name: {}".format(integration_name))
 
     search_request_payload = '''
     {{
@@ -156,19 +211,13 @@ def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_
             logger.warning(
                 "More than one cloud account with integration name {} was found.".format(integration_name))
             return False
-        intg_guid = data_dict[0]['intgGuid']
-
-        delete_response = send_lacework_api_delete_request(lacework_url, "api/v2/CloudAccounts/"
-                                                           + intg_guid, access_token, sub_account)
-        logger.info('API response code : {}'.format(delete_response.status_code))
-        logger.info('API response : {}'.format(delete_response.text))
-        if delete_response.status_code != 204:
-            raise error_exception(
-                "API response error deleting Config account {} {}".format(delete_response.status_code,
-                                                                          delete_response.text))
+        return data_dict[0]['intgGuid']
+    else:
+        return False
 
 
 def send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key):
+    logger.info("lacework.send_lacework_api_access_token_request: {}".format(lacework_url))
     request_payload = '''
         {{
             "keyId": "{}", 
@@ -184,32 +233,34 @@ def send_lacework_api_access_token_request(lacework_url, access_key_id, secret_k
         raise api_request_exception
 
 
-def send_lacework_api_post_request(lacework_url, api, access_token, request_payload, sub_account_name):
-    logger.info("lacework.delete_lw_cloud_account")
+def send_lacework_api_post_request(lacework_url, api, access_token, request_payload, account_name):
+    logger.info("lacework.send_lacework_api_post_request: {} {} {} {}".format(lacework_url, api, account_name,
+                                                                              request_payload))
     try:
-        if not sub_account_name:
+        if not account_name:
             return requests.post("https://" + lacework_url + "/" + api,
                                  headers={'Authorization': access_token, 'content-type': 'application/json'},
                                  verify=True, data=request_payload)
         else:
             return requests.post("https://" + lacework_url + "/" + api,
                                  headers={'Authorization': access_token, 'content-type': 'application/json',
-                                          'Account-Name': sub_account_name.lower()},
+                                          'Account-Name': account_name.lower()},
                                  verify=True, data=request_payload)
     except Exception as api_request_exception:
         raise api_request_exception
 
 
-def send_lacework_api_delete_request(lacework_url, api, access_token, sub_account_name):
+def send_lacework_api_delete_request(lacework_url, api, access_token, account_name):
+    logger.info("lacework.send_lacework_api_delete_request: {} {} {}".format(lacework_url, api, account_name))
     try:
-        if not sub_account_name:
+        if not account_name:
             return requests.delete("https://" + lacework_url + "/" + api,
                                    headers={'Authorization': access_token},
                                    verify=True)
         else:
             return requests.delete("https://" + lacework_url + "/" + api,
                                    headers={'Authorization': access_token,
-                                            'Account-Name': sub_account_name.lower()},
+                                            'Account-Name': account_name.lower()},
                                    verify=True)
     except Exception as api_request_exception:
         raise api_request_exception

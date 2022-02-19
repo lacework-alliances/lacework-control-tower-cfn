@@ -37,12 +37,23 @@ You need the following prerequisites to implement the Lacework AWS Control Tower
 
 - AWS Control Tower with a Landing Zone. For information about setting up an AWS Control Tower landing zone, see [Getting Started with AWS Control Tower in the AWS Control Tower User Guide](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
 - Administrator privileges in the AWS Control Tower management account.
-- A Lacework Cloud Security Platform SaaS account. **Note on Lacework Organization Support:** This integration does not support multiple Lacework sub-accounts/tenants. AWS accounts will be added to a single specified sub-account/tenant only.
+- A Lacework Cloud Security Platform SaaS account.
+
+## Lacework and AWS Organization Support
+The Lacework AWS Control Tower integration supports the Lacework Organizations feature and AWS Organizations mapping. Two scenarios are supported:
+
+### All AWS Accounts to a Single Lacework Sub-Account
+In the CloudFormation stack parameters, you can specify a Lacework sub-account for which all AWS accounts will be added. This is specified in the **Single Sub-Account Configuration** section in the **Lacework Sub-Account Name** field (see below).
+### AWS Organizations to Lacework Sub-Account Mapping
+In the CloudFormation stack parameters, you can specify a comma-separated list of AWS organization names that match Lacework sub-account names. AWS accounts will be added to the appropriate Lacework sub-accounts based on this AWS organization-to-Lacework sub-account name mapping. AWS organization names and Lacework sub-account names must match. AWS accounts not in the specified organizations will not be added to Lacework. This is specified in the **Organization Configuration** section in the **AWS Organizations to Lacework Sub-Account Names** field (see below).
+
+When creating AWS organizations, creating AWS accounts or moving AWS accounts across organizations, ensure that you use the [recommended AWS Control Tower methods](https://docs.aws.amazon.com/controltower/latest/userguide/provision-and-manage-accounts.html). This will ensure that Lacework monitors the correct AWS accounts. Making updates to AWS accounts outside of AWS Control Tower may cause issues.
 
 ## Installing the Lacework AWS Control Tower Integration
 
 ### 1. Generate a Lacework API Access Key
 
+If using Lacework and AWS Organization Support, ensure that you are generating an API key from the Org Admin Lacework account.
 1. In your console, go to **Settings > API Keys**.
 2. Click on the **Create New** button in the upper right to create a new API key.
 3. Provide a **name** and **description** and click Save.
@@ -60,12 +71,11 @@ You need the following prerequisites to implement the Lacework AWS Control Tower
 
    [![Launch](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml)
 
-   For most deployments, you only need the Basic Configuration parameters. Use the Advanced Configuration for customization.
-   ![cloudformation-basic-configuration.png](https://docs.lacework.com/assets/images/cloudformation-basic-configuration-33cb25c21212c3aae060d8f6d064bed8.png)
+   For most deployments, you only need the Basic Configuration parameters.
+   ![basic_configuration](https://user-images.githubusercontent.com/6440106/154780415-dba58c69-aec2-49ee-b8e9-d98d7a8f9efc.png)
 2. Specify the following Basic Configuration parameters:
     * Enter a **Stack name** for the stack.
     * Enter **Your Lacework URL**.
-    * Enter your **Lacework Sub-Account Name** if you are using Lacework Organizations.
     * Enter your **Lacework Access Key ID** and **Secret Key** that you copied from your previous API Keys file.
     * For **Capability Type**, the recommendation is to use **CloudTrail+Config** for the best capabilities.
     * Choose whether you want to **Monitor Existing Accounts**. This will set up monitoring of ACTIVE existing AWS accounts.
@@ -86,6 +96,10 @@ You need the following prerequisites to implement the Lacework AWS Control Tower
    ```
    ![control_tower_kms_key_policy.png](https://docs.lacework.com/assets/images/control_tower_kms_key_policy-ba8f68668bb3cadc57c74364a5a657d3.png)
     * Update the Control Tower **Log Account Name** and **Audit Account Name** if necessary.
+    * If using AWS organizations to Lacework sub-account mapping, specify a comma-separated lists of organization names in the **Organization Configuration** section in the **AWS Organizations to Lacework Sub-Account Names** field. AWS accounts will be added to the appropriate Lacework sub-accounts based on this AWS organization-to-Lacework sub-account name mapping. AWS organization names and Lacework sub-account names must match. AWS accounts not in the specified organizations will not be added to Lacework.
+      ![organization_configuration](https://user-images.githubusercontent.com/6440106/154780412-7543afb2-f84e-42e4-b31d-0b0cc2d6c55a.png)
+    * If using a single Lacework sub-account for all AWS accounts, specify a Lacework sub-account for which all AWS accounts will be added. This is specified in the **Single Sub-Account Configuration** section in the **Lacework Sub-Account Name** field.
+      ![sub_account_configuration](https://user-images.githubusercontent.com/6440106/154780411-50b270b5-4246-4e12-acb1-b1d4997b5671.png)
 3. Click **Next** through to your stack **Review**.
 4. Accept the AWS CloudFormation terms and click **Create stack**.
 

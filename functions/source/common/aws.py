@@ -17,6 +17,7 @@ LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
 
+
 def get_account_id_by_name(name):
     logger.info("aws.get_account_id_by_name called.")
     org_client = boto3.client('organizations')
@@ -52,14 +53,13 @@ def is_account_active(acct):
 def is_account_in_orgs(acct, orgs):
     logger.info("aws.is_account_in_orgs called.")
     if not orgs:
-
         return True
 
     org_client = boto3.client('organizations')
     try:
         response = org_client.list_parents(
             ChildId=acct,
-            MaxResults=100
+            MaxResults=20
         )
         org_list = [x.strip() for x in orgs.split(',')]
         for parent in response['Parents']:
@@ -71,6 +71,7 @@ def is_account_in_orgs(acct, orgs):
                     if org.lower() == org_name.lower():
                         logger.info("Account {} is in org {}.".format(acct, org))
                         return True
+        logger.info("Account {} is not in orgs {}.".format(acct, orgs))
         return False
     except Exception as describe_exception:
         logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
@@ -86,7 +87,7 @@ def get_org_for_account(acct, orgs):
     try:
         response = org_client.list_parents(
             ChildId=acct,
-            MaxResults=100
+            MaxResults=20
         )
         org_list = [x.strip() for x in orgs.split(',')]
         for parent in response['Parents']:
@@ -101,6 +102,36 @@ def get_org_for_account(acct, orgs):
     except Exception as describe_exception:
         logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
         return None
+
+
+def create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides=[]):
+    logger.info("aws.create_stack_set_instances called.")
+    cloud_formation_client = boto3.client("cloudformation")
+    return cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
+                                                         Accounts=accounts,
+                                                         Regions=regions,
+                                                         ParameterOverrides=parameter_overrides,
+                                                         OperationPreferences={
+                                                             'RegionConcurrencyType': "PARALLEL",
+                                                             'FailureToleranceCount': 999
+                                                         })
+
+
+def delete_stack_set_instances(config_stack_set_name, account_list, region_list):
+    logger.info("aws.delete_stack_set_instances called.")
+    try:
+        cloud_formation_client = boto3.client("cloudformation")
+        response = cloud_formation_client.delete_stack_instances(
+            StackSetName=config_stack_set_name,
+            Accounts=account_list,
+            Regions=region_list,
+            RetainStacks=False)
+        logger.info(response)
+
+        wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
+    except Exception as delete_exception:
+        logger.warning("Failed to delete stack instances: {} {} {} {}".format(config_stack_set_name, account_list,
+                                                                              region_list, delete_exception))
 
 
 def wait_for_stack_set_operation(stack_set_name, operation_id):
@@ -127,12 +158,39 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
         return True
 
 
-def list_stack_instance_by_account_region(config_stack_set_name, account_id, region):
+def stack_set_instance_exists(stack_set_name, account_id):
+    logger.info("aws.stack_set_instance_exists called.")
+    try:
+        cfn_client = boto3.client("cloudformation")
+        stack_set_result = cfn_client.list_stack_instances(
+            StackSetName=stack_set_name,
+            StackInstanceAccount=account_id,
+        )
+
+        logger.info("stack_set_result: {}".format(stack_set_result))
+        if stack_set_result and "Summaries" in stack_set_result:
+            stack_set_list = stack_set_result['Summaries']
+            while "NextToken" in stack_set_result:
+                stack_set_result = cfn_client.list_stack_set_instance(
+                    NextToken=stack_set_result['NextToken']
+                )
+                stack_set_list.append(stack_set_result['Summaries'])
+
+            logger.info("Stack instance for account {} found {} times.".format(account_id, len(stack_set_list)))
+            return len(stack_set_list) > 0
+        else:
+            return False
+    except Exception as e:
+        logger.error("List Stack Instance error: {}.".format(e))
+        return False
+
+
+def list_stack_instance_by_account_region(stack_set_name, account_id, region):
     logger.info("aws.list_stack_instance_by_account_region called.")
     try:
         cfn_client = boto3.client("cloudformation")
         stack_set_result = cfn_client.list_stack_instances(
-            StackSetName=config_stack_set_name,
+            StackSetName=stack_set_name,
             StackInstanceAccount=account_id,
             StackInstanceRegion=region
         )
