@@ -113,6 +113,7 @@ def create_stack_set_instances(stack_set_name, accounts, regions, parameter_over
                                                          ParameterOverrides=parameter_overrides,
                                                          OperationPreferences={
                                                              'RegionConcurrencyType': "PARALLEL",
+                                                             'MaxConcurrentCount': 100,
                                                              'FailureToleranceCount': 999
                                                          })
 

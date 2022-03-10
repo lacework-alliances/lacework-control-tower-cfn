@@ -313,6 +313,7 @@ Resources:
           lacework_aws_account_id: !Ref LaceworkAWSAccountId
           lacework_custom_sns: !Ref LaceworkCustomSNS
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
+
   LaceworkSetupFunctionRole:
     Type: AWS::IAM::Role
     Properties:

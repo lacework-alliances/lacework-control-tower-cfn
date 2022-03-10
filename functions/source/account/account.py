@@ -140,14 +140,13 @@ def cfn_stack_set_processing(messages):
             if stack_operations:
                 valid_account_list = []
                 for acct in param_accounts:
-                    if is_account_valid(acct, lacework_org_sub_account_names) and \
-                            not stack_set_instance_exists(config_stack_set_name, acct):
+                    if is_account_valid(acct, lacework_org_sub_account_names):
                         logger.info("Adding valid acct {}".format(acct))
                         valid_account_list.append(acct)
                     elif lacework_org_sub_account_names and \
-                            lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX+acct, lacework_url, access_token,
+                            lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, access_token,
                                                             lacework_org_sub_account_names):
-                        delete_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX+acct,
+                        delete_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct,
                                                         lacework_url, access_token, lacework_org_sub_account_names)
                         logger.info("Deleting acct {} from Lacework. Moved out of specified orgs.".format(acct))
                         delete_stack_set_instances(config_stack_set_name, [acct], param_regions)
@@ -158,8 +157,14 @@ def cfn_stack_set_processing(messages):
                     logger.warning("No valid accounts to add to Lacework: {}.".format(param_accounts))
                     return None
 
+                # check if stack_set_instance_exists()
+                create_stack_instance_list = []
+                for acct in valid_account_list:
+                    if not stack_set_instance_exists(config_stack_set_name, acct):
+                        create_stack_instance_list.append(acct)
+
                 external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-                response = create_stack_set_instances(config_stack_set_name, valid_account_list, param_regions, [
+                response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list, param_regions, [
                     {
                         "ParameterKey": "AccessToken",
                         "ParameterValue": access_token,
@@ -176,7 +181,8 @@ def cfn_stack_set_processing(messages):
 
                 wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
                 logger.info("Stack_set instance created {}".format(response))
-                time.sleep(30)
+                time.sleep(10)
+
                 for acct in valid_account_list:
                     org_name = get_org_for_account(acct, lacework_org_sub_account_names)
                     account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name

@@ -325,7 +325,7 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
             log_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
             logger.info("Creating log stack {} with ResourceNamePrefix: {} ExternalID: {} "
                         "ExistingTrailBucketName: {} SqsQueueUrl: {} SqsQueueArn: {}".format(log_account_template,
-                                                                                             lacework_account_name,
+                                                                                             lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name,
                                                                                              external_id,
                                                                                              cloudtrail_s3_bucket,
                                                                                              sqs_queue_url,
