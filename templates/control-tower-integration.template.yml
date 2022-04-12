@@ -191,7 +191,7 @@ Resources:
       Objects:
         - '/lambda/LaceworkCTAuth.zip'
         - '/lambda/LaceworkCTSetup.zip'
-        - '/lambda/LaceworkCTAccount1.4.1.zip'
+        - '/lambda/LaceworkCTAccount1.4.2.zip'
 
   CopyZipsRole:
     Type: AWS::IAM::Role
@@ -511,7 +511,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount1.4.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount1.4.2.zip']]
       Handler: account.lambda_handler
       Runtime: python3.7
       Timeout: 900

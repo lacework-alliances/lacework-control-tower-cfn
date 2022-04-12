@@ -67,8 +67,8 @@ def lw_cloud_account_exists_in_orgs(integration_name, lacework_url, access_token
     logger.info("lacework.lw_cloud_account_exists_in_orgs")
     org_list = [x.strip() for x in orgs.split(',')]
     for org in org_list:
-        intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, org, access_token)
-        if intg_guid:
+        data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, org, access_token)
+        if data_dict:
             return True
 
     return False
@@ -90,18 +90,36 @@ def delete_lw_cloud_account_in_orgs(integration_name, lacework_url, access_token
     logger.info("lacework.lw_cloud_account_exists_in_orgs")
     org_list = [x.strip() for x in orgs.split(',')]
     for org in org_list:
-        intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, org, access_token)
-        if intg_guid:
-            delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, org)
+        data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, org, access_token)
+        if data_dict:
+            delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, org)
             return None
     logger.warning("integration name {} not found for deletion.")
 
 
+def update_lw_cloud_account_in_orgs(integration_name, lacework_url, sub_account_name,
+                                    access_token,
+                                    orgs, role_arn, acct):
+    logger.info("lacework.update_lw_cloud_account_in_orgs")
+    org_list = [x.strip() for x in orgs.split(',')]
+    for org in org_list:
+        data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, org, access_token)
+        if data_dict:
+            delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, org)
+            add_lw_cloud_account_for_cfg(integration_name, lacework_url, sub_account_name,
+                                         access_token,
+                                         data_dict['data']['crossAccountCredentials']['externalId'],
+                                         role_arn, acct)
+            logger.info("Updated acct {} to {} in Lacework. Moved to {}".format(acct, integration_name,sub_account_name))
+            return None
+    logger.warning("integration name {} not found for update.")
+
+
 def lw_cloud_account_exists(integration_name, lacework_url, access_token, sub_account=""):
     logger.info("lacework.lw_cloud_account_exists")
-    intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token)
+    data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account, access_token)
 
-    if intg_guid:
+    if data_dict:
         return True
     else:
         return False
@@ -170,16 +188,16 @@ def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, a
 def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_token):
     logger.info("lacework.delete_lw_cloud_account")
 
-    intg_guid = search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token)
+    data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account, access_token)
 
-    if intg_guid:
-        delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, sub_account)
+    if data_dict:
+        delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, sub_account)
     else:
         error_exception("Cloud account {} not deleted. int_guid not found.".format(integration_name))
 
 
-def search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub_account, access_token):
-    logger.info("lacework.search_lw_cloud_account_intguid_by_name: {}".format(integration_name))
+def search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account, access_token):
+    logger.info("lacework.search_lw_cloud_account_by_name: {}".format(integration_name))
 
     search_request_payload = '''
     {{
@@ -211,7 +229,7 @@ def search_lw_cloud_account_int_guid_by_name(integration_name, lacework_url, sub
             logger.warning(
                 "More than one cloud account with integration name {} was found.".format(integration_name))
             return False
-        return data_dict[0]['intgGuid']
+        return data_dict[0]
     else:
         return False
 

@@ -28,7 +28,7 @@ from aws import list_stack_instance_by_account_region, is_account_valid, wait_fo
     get_org_for_account, create_stack_set_instances, stack_set_instance_exists, delete_stack_set_instances
 from honeycomb import send_honeycomb_event
 from lacework import get_account_from_url, get_access_token, add_lw_cloud_account_for_cfg, \
-    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs
+    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, update_lw_cloud_account_in_orgs
 
 HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
@@ -167,19 +167,19 @@ def cfn_stack_set_processing(messages):
                 if len(create_stack_instance_list) > 0:
                     response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
                                                           param_regions, [
-                        {
-                            "ParameterKey": "AccessToken",
-                            "ParameterValue": access_token,
-                            "UsePreviousValue": False,
-                            "ResolvedValue": "string"
-                        },
-                        {
-                            "ParameterKey": "ExternalID",
-                            "ParameterValue": external_id,
-                            "UsePreviousValue": False,
-                            "ResolvedValue": "string"
-                        }
-                    ])
+                                                              {
+                                                                  "ParameterKey": "AccessToken",
+                                                                  "ParameterValue": access_token,
+                                                                  "UsePreviousValue": False,
+                                                                  "ResolvedValue": "string"
+                                                              },
+                                                              {
+                                                                  "ParameterKey": "ExternalID",
+                                                                  "ParameterValue": external_id,
+                                                                  "UsePreviousValue": False,
+                                                                  "ResolvedValue": "string"
+                                                              }
+                                                          ])
 
                     wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
                     logger.info("Stack_set instance created {}".format(response))
@@ -193,13 +193,19 @@ def cfn_stack_set_processing(messages):
                     if lacework_org_sub_account_names:
                         if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, access_token,
                                                            lacework_org_sub_account_names):
-                            delete_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, access_token,
-                                                            lacework_org_sub_account_names)
-
-                    add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
-                                                 access_token,
-                                                 external_id,
-                                                 role_arn, acct)
+                            update_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                                                            access_token,
+                                                            lacework_org_sub_account_names, role_arn, acct)
+                        else:
+                            add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                                                         access_token,
+                                                         external_id,
+                                                         role_arn, acct)
+                    else:
+                        add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                                                     access_token,
+                                                     external_id,
+                                                     role_arn, acct)
                     logger.info("Added acct {} to {} in Lacework".format(acct, account_name))
             else:
                 logger.warning("Existing stack_set operations still running")
