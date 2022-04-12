@@ -164,24 +164,26 @@ def cfn_stack_set_processing(messages):
                         create_stack_instance_list.append(acct)
 
                 external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-                response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list, param_regions, [
-                    {
-                        "ParameterKey": "AccessToken",
-                        "ParameterValue": access_token,
-                        "UsePreviousValue": False,
-                        "ResolvedValue": "string"
-                    },
-                    {
-                        "ParameterKey": "ExternalID",
-                        "ParameterValue": external_id,
-                        "UsePreviousValue": False,
-                        "ResolvedValue": "string"
-                    }
-                ])
+                if len(create_stack_instance_list) > 0:
+                    response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
+                                                          param_regions, [
+                        {
+                            "ParameterKey": "AccessToken",
+                            "ParameterValue": access_token,
+                            "UsePreviousValue": False,
+                            "ResolvedValue": "string"
+                        },
+                        {
+                            "ParameterKey": "ExternalID",
+                            "ParameterValue": external_id,
+                            "UsePreviousValue": False,
+                            "ResolvedValue": "string"
+                        }
+                    ])
 
-                wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
-                logger.info("Stack_set instance created {}".format(response))
-                time.sleep(10)
+                    wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
+                    logger.info("Stack_set instance created {}".format(response))
+                    time.sleep(10)
 
                 for acct in valid_account_list:
                     org_name = get_org_for_account(acct, lacework_org_sub_account_names)
