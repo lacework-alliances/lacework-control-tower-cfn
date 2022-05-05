@@ -286,9 +286,9 @@ def send_lacework_api_delete_request(lacework_url, api, access_token, account_na
 
 
 def get_lacework_environment_variables():
-    env_vars = []
+    env_vars = {}
     for key, value in os.environ.items():
         if key.startswith("lacework"):
-            env_vars.append(key + "=" + value)
+            env_vars[key] = value
 
-    return env_vars
+    return json.dumps(env_vars)

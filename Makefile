@@ -4,7 +4,7 @@ KEY_PREFIX := lacework-control-tower-cfn
 PACKAGES_PREFIX := lambda/
 CFT_PREFIX := templates
 CFT_DIR := templates
-DATASET := lacework-alliances-
+DATASET := lacework-alliances-prod
 
 PROFILE ?= ct
 REGION ?= us-west-2
