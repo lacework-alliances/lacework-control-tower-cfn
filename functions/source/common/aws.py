@@ -50,29 +50,53 @@ def is_account_active(acct):
         return False
 
 
+def get_org_tree_for_id(ou_acct_id):
+    logger.info("aws.get_org_tree_for_account called.")
+    org_tree = []
+    org_client = boto3.client('organizations')
+    try:
+        while ou_acct_id:
+            response = org_client.list_parents(
+                ChildId=ou_acct_id,
+                MaxResults=20
+            )
+            for parent in response['Parents']:
+                if parent["Type"] == "ORGANIZATIONAL_UNIT":
+                    ou_acct_id = parent["Id"]
+                    org_name = org_client.describe_organizational_unit(
+                        OrganizationalUnitId=ou_acct_id
+                    )["OrganizationalUnit"]["Name"]
+                    org_tree.append(org_name.lower())
+                elif parent["Type"] == "ROOT":
+                    ou_acct_id = False
+                    break
+        return org_tree
+    except Exception as describe_exception:
+        logger.error("Exception getting account org on {} {}.".format(id, describe_exception))
+        return False
+
+
 def is_account_in_orgs(acct, orgs):
     logger.info("aws.is_account_in_orgs called.")
     if not orgs:
         return True
 
-    org_client = boto3.client('organizations')
     try:
-        response = org_client.list_parents(
-            ChildId=acct,
-            MaxResults=20
-        )
-        org_list = [x.strip() for x in orgs.split(',')]
-        for parent in response['Parents']:
-            for org in org_list:
-                if parent["Type"] == "ORGANIZATIONAL_UNIT":
-                    org_name = org_client.describe_organizational_unit(
-                        OrganizationalUnitId=parent["Id"]
-                    )["OrganizationalUnit"]["Name"]
-                    if org.lower() == org_name.lower():
+        acct_orgs = get_org_tree_for_id(acct)
+
+        if acct_orgs:
+            org_list = [x.strip() for x in orgs.split(',')]
+            for acct_org in acct_orgs:
+                for org in org_list:
+                    if org.lower() == acct_org.lower():
                         logger.info("Account {} is in org {}.".format(acct, org))
                         return True
-        logger.info("Account {} is not in orgs {}.".format(acct, orgs))
-        return False
+            logger.info("Account {} is not in orgs {}.".format(acct, orgs))
+            return False
+        else:
+            logger.info("Account {} is not in a AWS org?!?.".format(acct))
+            return False
+
     except Exception as describe_exception:
         logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
         return False
@@ -83,22 +107,22 @@ def get_org_for_account(acct, orgs):
     if not orgs:
         return None
 
-    org_client = boto3.client('organizations')
     try:
-        response = org_client.list_parents(
-            ChildId=acct,
-            MaxResults=20
-        )
-        org_list = [x.strip() for x in orgs.split(',')]
-        for parent in response['Parents']:
-            for org in org_list:
-                if parent["Type"] == "ORGANIZATIONAL_UNIT":
-                    org_name = org_client.describe_organizational_unit(
-                        OrganizationalUnitId=parent["Id"]
-                    )["OrganizationalUnit"]["Name"]
-                    if org.lower() == org_name.lower():
+        acct_orgs = get_org_tree_for_id(acct)
+
+        if acct_orgs:
+            org_list = [x.strip() for x in orgs.split(',')]
+            for acct_org in acct_orgs:
+                for org in org_list:
+                    if org.lower() == acct_org.lower():
+                        logger.info("Account {} is in org {}.".format(acct, org))
                         return org
-        return None
+            logger.info("Account {} is not in orgs {}.".format(acct, orgs))
+            return None
+        else:
+            logger.info("Account {} is not in a AWS org?!?.".format(acct))
+            return None
+
     except Exception as describe_exception:
         logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
         return None

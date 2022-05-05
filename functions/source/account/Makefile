@@ -1,6 +1,6 @@
 PROJECT = LaceworkCTAccount
 DIR_NAME = account
-FUNCTION = $(PROJECT)1.4.2
+FUNCTION = $(PROJECT)1.4.3
 DIST_DIR ?= "$(BASE)"/functions/packages/$(DIR_NAME)
 HONEY_DATASET = $(DATASET)
 

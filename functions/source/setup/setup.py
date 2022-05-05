@@ -29,7 +29,7 @@ from aws import is_account_active, wait_for_stack_set_operation, get_account_id_
     send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances
 from honeycomb import send_honeycomb_event
 from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account, \
-    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs
+    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, get_lacework_environment_variables
 from util import error_exception
 
 HONEY_API_KEY = "$HONEY_KEY"
@@ -72,7 +72,7 @@ def create(event, context):
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
     lacework_api_credentials = os.environ['lacework_api_credentials']
     send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "create started",
-                         lacework_sub_account_name)
+                         lacework_sub_account_name, get_lacework_environment_variables())
 
     if not lacework_sub_account_name:
         logger.info("Sub account was not specified.")

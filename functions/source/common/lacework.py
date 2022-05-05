@@ -110,7 +110,8 @@ def update_lw_cloud_account_in_orgs(integration_name, lacework_url, sub_account_
                                          access_token,
                                          data_dict['data']['crossAccountCredentials']['externalId'],
                                          role_arn, acct)
-            logger.info("Updated acct {} to {} in Lacework. Moved to {}".format(acct, integration_name,sub_account_name))
+            logger.info(
+                "Updated acct {} to {} in Lacework. Moved to {}".format(acct, integration_name, sub_account_name))
             return None
     logger.warning("integration name {} not found for update.")
 
@@ -282,3 +283,12 @@ def send_lacework_api_delete_request(lacework_url, api, access_token, account_na
                                    verify=True)
     except Exception as api_request_exception:
         raise api_request_exception
+
+
+def get_lacework_environment_variables():
+    env_vars = []
+    for key, value in os.environ.items():
+        if key.startswith("lacework"):
+            env_vars.append(key + "=" + value)
+
+    return env_vars
