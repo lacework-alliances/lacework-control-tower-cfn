@@ -80,10 +80,13 @@ def delete_lw_cloud_account_by_int_guid(intg_guid, lacework_url, access_token, s
                                                        + intg_guid, access_token, sub_account)
     logger.info('API response code : {}'.format(delete_response.status_code))
     logger.info('API response : {}'.format(delete_response.text))
-    if delete_response.status_code != 204:
-        raise error_exception(
+    if delete_response.status_code == 204:
+        return True
+    else:
+        logger.warning(
             "API response error deleting Config account {} {}".format(delete_response.status_code,
                                                                       delete_response.text))
+        return False
 
 
 def delete_lw_cloud_account_in_orgs(integration_name, lacework_url, access_token, orgs):
@@ -92,9 +95,9 @@ def delete_lw_cloud_account_in_orgs(integration_name, lacework_url, access_token
     for org in org_list:
         data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, org, access_token)
         if data_dict:
-            delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, org)
-            return None
+            return delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, org)
     logger.warning("integration name {} not found for deletion.")
+    return False
 
 
 def update_lw_cloud_account_in_orgs(integration_name, lacework_url, sub_account_name,
@@ -112,8 +115,11 @@ def update_lw_cloud_account_in_orgs(integration_name, lacework_url, sub_account_
                                          role_arn, acct)
             logger.info(
                 "Updated acct {} to {} in Lacework. Moved to {}".format(acct, integration_name, sub_account_name))
-            return None
+            return True
+        else:
+            logger.info("integration name {} not found in org {}".format(integration_name, org))
     logger.warning("integration name {} not found for update.")
+    return False
 
 
 def lw_cloud_account_exists(integration_name, lacework_url, access_token, sub_account=""):
@@ -151,9 +157,12 @@ def add_lw_cloud_account_for_ct(integration_name, lacework_url, sub_account, acc
                                                   request_payload, sub_account)
     logger.info('API response code : {}'.format(add_response.status_code))
     logger.info('API response : {}'.format(add_response.text))
-    if add_response.status_code != 201:
-        raise error_exception("API response error adding CloudTrail account {} {}".format(add_response.status_code,
-                                                                                          add_response.text))
+    if add_response.status_code == 201:
+        return True
+    else:
+        logger.warning("API response error adding CloudTrail account {} {}".format(add_response.status_code,
+                                                                                   add_response.text))
+        return False
 
 
 def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, access_token,
@@ -181,9 +190,12 @@ def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, a
                                                   request_payload, account_name)
     logger.info('API response code : {}'.format(add_response.status_code))
     logger.info('API response : {}'.format(add_response.text))
-    if add_response.status_code != 201:
-        raise error_exception("API response error adding Config account {} {}".format(add_response.status_code,
-                                                                                      add_response.text))
+    if add_response.status_code == 201:
+        return True
+    else:
+        logger.warning("API response error adding Config account {} {}".format(add_response.status_code,
+                                                                               add_response.text))
+        return False
 
 
 def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_token):
@@ -192,9 +204,10 @@ def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_
     data_dict = search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account, access_token)
 
     if data_dict:
-        delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, sub_account)
+        return delete_lw_cloud_account_by_int_guid(data_dict['intgGuid'], lacework_url, access_token, sub_account)
     else:
-        error_exception("Cloud account {} not deleted. int_guid not found.".format(integration_name))
+        logger.warning("Cloud account {} not deleted. int_guid not found.".format(integration_name))
+        return False
 
 
 def search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account, access_token):
@@ -214,7 +227,6 @@ def search_lw_cloud_account_by_name(integration_name, lacework_url, sub_account,
         ]
     }}
     '''.format(integration_name)
-    logger.info('Generate search account payload : {}'.format(search_request_payload))
 
     search_response = send_lacework_api_post_request(lacework_url, "api/v2/CloudAccounts/search", access_token,
                                                      search_request_payload, sub_account)

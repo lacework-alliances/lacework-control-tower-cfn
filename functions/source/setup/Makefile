@@ -1,6 +1,6 @@
 PROJECT = LaceworkCTSetup
 DIR_NAME = setup
-FUNCTION = $(PROJECT)1.4.3
+FUNCTION = $(PROJECT)1.4.4
 DIST_DIR ?= "$(BASE)"/functions/packages/$(DIR_NAME)
 HONEY_DATASET = $(DATASET)
 

@@ -130,6 +130,9 @@ def get_org_for_account(acct, orgs):
 
 def create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides=[]):
     logger.info("aws.create_stack_set_instances called.")
+    logger.info("Create stack name={} accounts={} regions={} parameter_overrides={} ".format(stack_set_name, accounts,
+                                                                                             regions,
+                                                                                             parameter_overrides))
     cloud_formation_client = boto3.client("cloudformation")
     return cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
                                                          Accounts=accounts,
