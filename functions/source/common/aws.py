@@ -168,8 +168,9 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
     cloudformation_client = boto3.client("cloudformation")
     finished = False
     status = ""
+    count = 1
     while not finished:
-        time.sleep(15)
+        time.sleep(count * 20)
         status = \
             cloudformation_client.describe_stack_set_operation(StackSetName=stack_set_name, OperationId=operation_id)[
                 "StackSetOperation"
@@ -178,6 +179,7 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
             logger.info("{} {} still running.".format(stack_set_name, operation_id))
         else:
             finished = True
+        count += 1
 
     logger.info("StackSet Operation finished with Status: {}".format(status))
     if status not in STACK_SET_SUCCESS_STATES:
