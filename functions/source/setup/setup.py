@@ -26,7 +26,7 @@ import urllib3
 from crhelper import CfnResource
 
 from aws import is_account_active, wait_for_stack_set_operation, get_account_id_by_name, send_cfn_fail, \
-    send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances
+    send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances, get_stack_tags
 from honeycomb import send_honeycomb_event
 from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account, \
     lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, get_lacework_environment_variables
@@ -330,6 +330,9 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                                                                                              cloudtrail_s3_bucket,
                                                                                              sqs_queue_url,
                                                                                              sqs_queue_arn))
+            cfn_stack = os.environ['cfn_stack']
+            cfn_stack_id = os.environ['cfn_stack_id']
+            cfn_tags = get_stack_tags(cfn_stack, cfn_stack_id)
             cloudformation_client.create_stack_set(
                 StackSetName=log_stack_set_name,
                 Description=DESCRIPTION,
@@ -384,6 +387,7 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                         "ResolvedValue": "string"
                     }
                 ],
+                Tags=cfn_tags,
                 Capabilities=[
                     "CAPABILITY_NAMED_IAM"
                 ],
@@ -426,6 +430,10 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
             logger.info("Creating audit stack {} with ResourceNamePrefix: {} ExistingTrailTopicArn: {} "
                         "CrossAccountAccessRoleArn: {}".format(audit_account_template, lacework_account_name,
                                                                cloudtrail_sns_topic, cross_account_access_role))
+
+            cfn_stack = os.environ['cfn_stack']
+            cfn_stack_id = os.environ['cfn_stack_id']
+            cfn_tags = get_stack_tags(cfn_stack, cfn_stack_id)
             cloudformation_client.create_stack_set(
                 StackSetName=audit_stack_set_name,
                 Description=DESCRIPTION,
@@ -450,6 +458,7 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                         "ResolvedValue": "string"
                     }
                 ],
+                Tags=cfn_tags,
                 Capabilities=[
                     "CAPABILITY_NAMED_IAM"
                 ],
@@ -503,6 +512,10 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
         logger.info("Using role {} to create stack {}".format(management_role, config_stack_set_name))
         logger.info("Creating config stack with ResourceNamePrefix: {} ExternalID: {} ".format(account_name,
                                                                                                external_id))
+
+        cfn_stack = os.environ['cfn_stack']
+        cfn_stack_id = os.environ['cfn_stack_id']
+        cfn_tags = get_stack_tags(cfn_stack, cfn_stack_id)
         cloudformation_client.create_stack_set(
             StackSetName=config_stack_set_name,
             Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
@@ -540,6 +553,7 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
                     "ResolvedValue": "string"
                 }
             ],
+            Tags=cfn_tags,
             Capabilities=[
                 "CAPABILITY_NAMED_IAM"
             ],

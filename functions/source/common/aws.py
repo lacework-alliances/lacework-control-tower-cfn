@@ -242,6 +242,25 @@ def list_stack_instance_by_account_region(stack_set_name, account_id, region):
         return False
 
 
+def get_stack_tags(stack_name, stack_id):
+    logger.info("aws.get_stack_tags.")
+    try:
+        cfn_client = boto3.client("cloudformation")
+        response = cfn_client.describe_stacks(
+            StackName=stack_name
+        )
+
+        logger.info("stacks_result: {}".format(response))
+        for stack in response['Stacks']:
+            if stack["StackId"] == stack_id:
+                return stack["Tags"]
+
+        return []
+    except Exception as e:
+        logger.error("List Stack Instance error: {}.".format(e))
+        return []
+
+
 def send_cfn_fail(event, context, msg):
     logger.error(msg)
     send_cfn_response(event, context, FAILED, {"Message": msg})

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v1.4.5"
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v1.4.6"
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -190,7 +190,7 @@ Resources:
       Prefix: !Ref 'S3KeyPrefix'
       Objects:
         - '/lambda/LaceworkCTAuth.zip'
-        - '/lambda/LaceworkCTSetup1.4.5.zip'
+        - '/lambda/LaceworkCTSetup1.4.6.zip'
         - '/lambda/LaceworkCTAccount1.4.5.zip'
 
   CopyZipsRole:
@@ -290,7 +290,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup1.4.5.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup1.4.6.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.7
       Timeout: 900
@@ -312,6 +312,8 @@ Resources:
           member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
           lacework_aws_account_id: !Ref LaceworkAWSAccountId
           lacework_custom_sns: !Ref LaceworkCustomSNS
+          cfn_stack: !Ref AWS::StackName
+          cfn_stack_id: !Ref AWS::StackId
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
 
   LaceworkSetupFunctionRole:
@@ -330,6 +332,12 @@ Resources:
         PolicyDocument:
           Version: 2012-10-17
           Statement:
+          - Sid: StackOperations
+            Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+            Resource:
+              !Join [ '', [ 'arn:aws:cloudformation:', '*', ':', '*', ':stack/*' ] ]
           - Sid: AccountStatusCheck
             Effect: Allow
             Action:
@@ -341,6 +349,7 @@ Resources:
             Action:
             - cloudformation:CreateStackInstances
             - cloudformation:ListStackInstances
+            - cloudformation:TagResource
             - organizations:DescribeAccount
             Resource:
               !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/', '*' ]]
