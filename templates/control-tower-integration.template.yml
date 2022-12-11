@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v1.4.6"
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.0.0 Supports CT LZ 3.0"
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -190,8 +190,8 @@ Resources:
       Prefix: !Ref 'S3KeyPrefix'
       Objects:
         - '/lambda/LaceworkCTAuth.zip'
-        - '/lambda/LaceworkCTSetup1.4.6.zip'
-        - '/lambda/LaceworkCTAccount1.4.5.zip'
+        - '/lambda/LaceworkCTSetup3.0.0.zip'
+        - '/lambda/LaceworkCTAccount3.0.0.zip'
 
   CopyZipsRole:
     Type: AWS::IAM::Role
@@ -290,7 +290,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup1.4.6.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.0.0.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.7
       Timeout: 900
@@ -367,7 +367,7 @@ Resources:
             - cloudformation:CreateStackSet
             - cloudformation:DescribeStackSet
             Resource:
-              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/Lacework-*' ]]
+              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/', '*' ]]
           - Sid: S3Ops
             Effect: Allow
             Action:
@@ -520,7 +520,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount1.4.5.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.0.0.zip']]
       Handler: account.lambda_handler
       Runtime: python3.7
       Timeout: 900

@@ -15,21 +15,22 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+import json
+import logging
+import os
 import random
 import string
 
 import boto3
-import json
-import logging
-import os
 import urllib3
 from crhelper import CfnResource
 
 from aws import is_account_active, wait_for_stack_set_operation, get_account_id_by_name, send_cfn_fail, \
-    send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances, get_stack_tags
+    send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances, get_stack_tags, \
+    stack_set_exists
 from honeycomb import send_honeycomb_event
 from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account, \
-    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, get_lacework_environment_variables
+    get_lacework_environment_variables
 from util import error_exception
 
 HONEY_API_KEY = "$HONEY_KEY"
@@ -571,12 +572,16 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
         if existing_accounts == "Yes":
             logger.info("Chose to deploy to existing accounts.")
             try:
-                account_list = []
+                ct_cloudtrail_stack = "AWSControlTowerBP-BASELINE-CONFIG"  # LZ3.0
+                if not stack_set_exists(ct_cloudtrail_stack):
+                    ct_cloudtrail_stack = "AWSControlTowerBP-BASELINE-CLOUDTRAIL"
+                account_set = set()
                 paginator = cloudformation_client.get_paginator('list_stack_instances')
-                page_iterator = paginator.paginate(StackSetName="AWSControlTowerBP-BASELINE-CLOUDTRAIL")
+                page_iterator = paginator.paginate(StackSetName=ct_cloudtrail_stack)
                 for page in page_iterator:
                     for inst in page['Summaries']:
-                        account_list.append(inst['Account'])
+                        account_set.add(inst['Account'])
+                account_list = list(account_set)
                 if len(account_list) > 0:
                     send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
                                          "add {} existing".format(len(account_list)), lacework_sub_account_name)

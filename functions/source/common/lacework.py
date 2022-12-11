@@ -4,6 +4,8 @@ import os
 import boto3
 import json
 
+import time
+
 import requests
 
 from util import error_exception
@@ -167,8 +169,8 @@ def add_lw_cloud_account_for_ct(integration_name, lacework_url, sub_account, acc
 
 def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, access_token,
                                  external_id,
-                                 role_arn, aws_account_id):
-    logger.info("lacework.add_lw_cloud_account_for_cfg")
+                                 role_arn, aws_account_id, retry_count=0):
+    logger.info("lacework.add_lw_cloud_account_for_cfg: retry {}".format(retry_count))
 
     request_payload = '''
     {{
@@ -195,6 +197,12 @@ def add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, a
     else:
         logger.warning("API response error adding Config account {} {}".format(add_response.status_code,
                                                                                add_response.text))
+        if retry_count < 3:
+            retry_count += 1
+            time.sleep(5)
+            return add_lw_cloud_account_for_cfg(integration_name, lacework_url, account_name, access_token,
+                                                external_id,
+                                                role_arn, aws_account_id, retry_count)
         return False
 
 

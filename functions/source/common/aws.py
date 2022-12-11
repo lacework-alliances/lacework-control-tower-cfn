@@ -188,6 +188,21 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
         return True
 
 
+def stack_set_exists(stack_set_name):
+    logger.info("aws.stack_set_exists called.")
+    try:
+        cfn_client = boto3.client("cloudformation")
+        stack_set_result = cfn_client.describe_stack_set(
+            StackSetName=stack_set_name,
+        )
+
+        logger.info("stack_set_result: {}".format(stack_set_result))
+        return True
+    except Exception as e:
+        logger.error("Describe Stack Set error: {}.".format(e))
+        return False
+
+
 def stack_set_instance_exists(stack_set_name, account_id):
     logger.info("aws.stack_set_instance_exists called.")
     try:
