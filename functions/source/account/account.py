@@ -28,7 +28,8 @@ from aws import list_stack_instance_by_account_region, is_account_valid, wait_fo
     get_org_for_account, create_stack_set_instances, stack_set_instance_exists, delete_stack_set_instances
 from honeycomb import send_honeycomb_event
 from lacework import get_account_from_url, get_access_token, add_lw_cloud_account_for_cfg, \
-    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, update_lw_cloud_account_in_orgs
+    lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, update_lw_cloud_account_in_orgs, \
+    setup_initial_access_token
 
 HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
@@ -108,6 +109,7 @@ def cfn_stack_set_processing(messages):
     lacework_org_sub_account_names = os.environ['lacework_org_sub_account_names']
     lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
+    setup_initial_access_token(lacework_url, lacework_api_credentials)
     access_token = get_access_token(lacework_api_credentials)
 
     if access_token is None:
