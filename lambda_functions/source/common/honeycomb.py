@@ -28,9 +28,9 @@ def send_honeycomb_event(honey_key, dataset, version, account, event, subaccount
         '''.format(account, subaccount, version, event, eventdata)
         logger.info('Generate payload : {}'.format(payload))
         resp = requests.post("https://api.honeycomb.io/1/events/" + dataset,
-                             headers={'X-Honeycomb-Team': honey_key,
-                                      'content-type': 'application/json'},
-                             verify=True, data=payload)
+                         headers={'X-Honeycomb-Team': honey_key,
+                                  'content-type': 'application/json'},
+                         verify=True, data=payload)
         logger.info("Honeycomb response {} {}".format(resp, resp.content))
 
     except Exception as e:

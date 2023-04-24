@@ -16,8 +16,8 @@ s3_buckets := $(BUCKET_PREFIX)
 
 TOPTARGETS := all clean package build
 
-SUBDIRS := $(wildcard functions/source/*/.)
-ZIP_SUBDIRS := $(wildcard functions/packages/*/.)
+SUBDIRS := $(wildcard lambda_functions/source/*/.)
+ZIP_SUBDIRS := $(wildcard lambda_functions/packages/*/.)
 
 ZIP_FILES := $(shell find $(ZIP_SUBDIRS) -type f -name '*.zip')
 
