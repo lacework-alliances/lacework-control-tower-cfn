@@ -21,19 +21,6 @@ Parameters:
     Type: String
     MinLength: '2'
     MaxLength: '1224'
-  AccessToken:
-    Default: 4CEBE3B
-    Description: >-
-      Access token used by this stack template.
-    Type: String
-    MinLength: '2'
-    MaxLength: '1224'
-  ServiceToken:
-    Description: >-
-      Access token used by this stack template.
-    Type: String
-    MinLength: '2'
-    MaxLength: '1224'
   LaceworkAWSAccountId:
     Type: String
     Default: "434813966438"

@@ -21,13 +21,6 @@ Parameters:
     Type: String
     MinLength: '2'
     MaxLength: '1224'
-  AccessToken:
-    Default: 4CEBE3B
-    Description: >-
-      Access token used by this stack template.
-    Type: String
-    MinLength: '2'
-    MaxLength: '1224'
   ExistingTrailBucketName:
     Description: >-
       Provide the name of the S3 bucket for your existing trail setup.  The
