@@ -69,7 +69,7 @@ If using Lacework and AWS Organization Support, ensure that you are generating a
 
 1. Click on the following Launch Stack button to go to your CloudFormation console and launch the AWS Control Integration template.
 
-   [![Launch](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yml)
+   [![Launch](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yaml)
 
    For most deployments, you only need the Basic Configuration parameters.
    ![basic_configuration](https://user-images.githubusercontent.com/6440106/154780415-dba58c69-aec2-49ee-b8e9-d98d7a8f9efc.png)
@@ -150,14 +150,14 @@ The following sections provide guidance for resolving issues with deploying the 
 You can monitor the CloudFormation events for the Lacework AWS Control Tower integration stack. Events may reveal issues with resource creation. The Lacework AWS Control Tower integration stack launches a main stack and three stacksets:
 
 **Main Deployment Stack:**
-* **control-tower-integration.template.yml** - Main stack that deploys all resources: IAM roles, access token credentials, IAM roles, SQS queues, Lambda functions and the stacksets below.
+* **control-tower-integration.template.yaml** - Main stack that deploys all resources: IAM roles, access token credentials, IAM roles, SQS queues, Lambda functions and the stacksets below.
 
 **Centralized CloudTrail Cloud Account in Lacework:** (Applied once during initial deployment)
-* **lacework-aws-ct-audit.template.yml** -> **Lacework-Control-Tower-CloudTrail-Audit-Account-**_Lacework account_ - Creates a stack instance in the Audit account.
-* **lacework-aws-ct-log.template.yml** -> **Lacework-Control-Tower-CloudTrail-Log-Account-**_Lacework account_ - Creates a stack instance in the Log account.
+* **lacework-aws-ct-audit.template.yaml** -> **Lacework-Control-Tower-CloudTrail-Audit-Account-**_Lacework account_ - Creates a stack instance in the Audit account.
+* **lacework-aws-ct-log.template.yaml** -> **Lacework-Control-Tower-CloudTrail-Log-Account-**_Lacework account_ - Creates a stack instance in the Log account.
 
 **Config Cloud Account in Lacework:** (Applied for each AWS account)
-* **lacework-aws-cfg-member.template.yml** -> **Lacework-Control-Tower-Config-Member-**_Lacework account_ - Creates a stack instance in each AWS account.
+* **lacework-aws-cfg-member.template.yaml** -> **Lacework-Control-Tower-Config-Member-**_Lacework account_ - Creates a stack instance in each AWS account.
 
 Examining these stacksets for operation results, stack instance results and parameters may also provide debug information.
 

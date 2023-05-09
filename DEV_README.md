@@ -33,10 +33,10 @@
 │           ├── requirements.txt 
 │           └── setup.py 
 ├── templates (cloudformation templates)
-│   ├── control-tower-integration.template.yml
-│   ├── lacework-aws-cfg-member.template.yml
-│   ├── lacework-aws-ct-audit.template.yml
-│   └── lacework-aws-ct-log.template.yml
+│   ├── control-tower-integration.template.yaml
+│   ├── lacework-aws-cfg-member.template.yaml
+│   ├── lacework-aws-ct-audit.template.yaml
+│   └── lacework-aws-ct-log.template.yaml
 └── Makefile (master makefile)
 
 ```
@@ -47,21 +47,21 @@ Follow these instructions to set up an AWS Control Tower Landing Zone. You must 
 [AWS Control Tower Landing Zone Set Up](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html#step-two)
 
 ## Lambda Functions
-- **Setup** - The Setup function is run when the control-tower-integration.template.yml stack is created. It does the following:
+- **Setup** - The Setup function is run when the control-tower-integration.template.yaml stack is created. It does the following:
     * Sets up the initial access token and stores it using AWS secrets manager.
-    * Creates the lacework-aws-cfg-member.template.yml, lacework-aws-ct-audit.template.yml and lacework-aws-ct-log.template.yml stacksets.
-    * Executes lacework-aws-ct-audit.template.yml and lacework-aws-ct-log.template.yml stack instances for the Audit and Log Archive account respectively.
+    * Creates the lacework-aws-cfg-member.template.yaml, lacework-aws-ct-audit.template.yaml and lacework-aws-ct-log.template.yaml stacksets.
+    * Executes lacework-aws-ct-audit.template.yaml and lacework-aws-ct-log.template.yaml stack instances for the Audit and Log Archive account respectively.
     * Adds the Lacework CloudTrail cloud account using the AWS Control Tower centralized CloudTrail S3 bucket.
-    * If "Monitor existing accounts" is chosen, executes lacework-aws-cfg-member.template.yml stack instances for all existing AWS accounts. This adds Lacework Config cloud account for each AWS Account.
+    * If "Monitor existing accounts" is chosen, executes lacework-aws-cfg-member.template.yaml stack instances for all existing AWS accounts. This adds Lacework Config cloud account for each AWS Account.
     * Sends Honeycomb telemetry.
-- **Account** - The Account function is executed when an AWS Control Tower lifecycle event for a new AWS Account enrollment. This executes a lacework-aws-cfg-member.template.yml stack instance for the enrolled AWS account. This adds a Lacework Config cloud account for this AWS Account.
+- **Account** - The Account function is executed when an AWS Control Tower lifecycle event for a new AWS Account enrollment. This executes a lacework-aws-cfg-member.template.yaml stack instance for the enrolled AWS account. This adds a Lacework Config cloud account for this AWS Account.
 - **Auth** - This function periodically checks the Lacework access token for expiration and refreshes it if necessary.
 
 ## CloudFormation Templates
-- **control-tower-integration.template.yml** - This is the master CloudFormation template and sets up all the initial resources: Lambda functions, roles, policies, SNS and event rules.
-- **lacework-aws-cfg-member.template.yml** - This template closely resembles the standard Lacework configuration template and enables a Lacework Config type cloud account.
-- **lacework-aws-ct-audit.template.yml** - This template sets up an SQS queue in the Audit AWS account where the AWS Control Tower CloudTrail SNS topic resides. Lacework receives CloudTrail update messages from the SQS queue.
-- **lacework-aws-ct-log.template.yml** - This template configures CloudTrail S3 bucket access in the Log Archive account where this bucket resides.
+- **control-tower-integration.template.yaml** - This is the master CloudFormation template and sets up all the initial resources: Lambda functions, roles, policies, SNS and event rules.
+- **lacework-aws-cfg-member.template.yaml** - This template closely resembles the standard Lacework configuration template and enables a Lacework Config type cloud account.
+- **lacework-aws-ct-audit.template.yaml** - This template sets up an SQS queue in the Audit AWS account where the AWS Control Tower CloudTrail SNS topic resides. Lacework receives CloudTrail update messages from the SQS queue.
+- **lacework-aws-ct-log.template.yaml** - This template configures CloudTrail S3 bucket access in the Log Archive account where this bucket resides.
 
 ## Lacework Control Tower Public S3 Buckets
 Released Lambda packages and templates are placed in the following S3 bucket. Customers deploy the solution from this bucket.
@@ -73,10 +73,10 @@ s3://lacework-alliances/lacework-control-tower-cfn/
    │   ├── LaceworkCTAuth.zip
    │   └── LaceworkCTSetup.zip
    └── templates/
-       ├── control-tower-integration.template.yml
-       ├── lacework-aws-cfg-member.template.yml
-       ├── lacework-aws-ct-audit.template.yml
-       └── lacework-aws-ct-log.template.yml
+       ├── control-tower-integration.template.yaml
+       ├── lacework-aws-cfg-member.template.yaml
+       ├── lacework-aws-ct-audit.template.yaml
+       └── lacework-aws-ct-log.template.yaml
 ```
 
 ## Honeycomb Telemetry
@@ -119,7 +119,7 @@ DATASET := lacework-alliances-dev
 make HONEY_KEY=xxxxx
 make upload
 ```
-4. Go to your CloudFormation console using the [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) and specify the control-tower-integration.template.yml in your S3 test folder location. The [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) maybe be different than your AWS development account.
+4. Go to your CloudFormation console using the [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) and specify the control-tower-integration.template.yaml in your S3 test folder location. The [AWS Control Tower Management Account](https://docs.aws.amazon.com/controltower/latest/userguide/accounts.html#special-accounts) maybe be different than your AWS development account.
 5. When entering the CloudFormation stack parameters, ensure **that the _Cloudformation S3 Key Prefix_ parameter is updated for the same test folder**.
 6. Execute the stack.
 7. Verify that the Lacework CloudTrail cloud account is created.
