@@ -213,6 +213,7 @@ Resources:
 
   LaceworkSetupFunctionRole:
     Type: AWS::IAM::Role
+    DependsOn: LaceworkApiCredentials
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -327,6 +328,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     DependsOn:
       - LaceworkAccountSNSSubscription
+      - LaceworkApiCredentials
     Properties:
       ServiceToken:
         !GetAtt LaceworkSetupFunction.Arn
