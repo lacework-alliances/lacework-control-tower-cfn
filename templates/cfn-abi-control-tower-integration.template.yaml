@@ -154,17 +154,17 @@ Parameters:
     Description: "Enter the S3 key prefix for Lacework Control Tower Cloudformation assets directory. Use this if you want to customize your deployment."
   CTLogAccountTemplate:
     Type: String
-    Default: lacework-aws-ct-log.template.yml
+    Default: lacework-aws-ct-log.template.yaml
     MinLength: '1'
     Description: "Enter the Cloudformation template for the log account. Expected to be in a templates/ directory."
   CTAuditAccountTemplate:
     Type: String
-    Default: lacework-aws-ct-audit.template.yml
+    Default: lacework-aws-ct-audit.template.yaml
     MinLength: '1'
     Description: "Enter the Cloudformation template for the audit account. Expected to be in a templates/ directory."
   CFGMemberAccountTemplate:
     Type: String
-    Default: lacework-aws-cfg-member.template.yml
+    Default: lacework-aws-cfg-member.template.yaml
     MinLength: '1'
     Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
   LaceworkAWSAccountId:
