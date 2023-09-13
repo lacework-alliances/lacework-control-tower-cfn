@@ -14,13 +14,21 @@ Parameters:
       Invalid resource name prefix value.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
   ExternalID:
-    Default: 4CEBE3B
+    Default: 4CEBE3BCEB
     Description: >-
-      The cross-account access role created by the stack will use this value for
-      its ExternalID.
+      The cross-account access role created by the stack will use this value in
+      the ExternalID.
     Type: String
-    MinLength: '2'
-    MaxLength: '1224'
+    MinLength: '10'
+    MaxLength: '10'
+    AllowedPattern: ^[a-zA-Z0-9=,.@:/-]{10}$
+    ConstraintDescription: >-
+      Invalid ExternalID value.  Must match pattern
+      ^[a-zA-Z0-9=,.@:/-]{10}$.  Must be 10 characters long.
+  LaceworkAccount:
+    Type: String
+    Description: "Enter your Lacework account name. Do not include the '.lacework.net' at the end."
+    MinLength: '1'
   ExistingTrailBucketName:
     Description: >-
       Provide the name of the S3 bucket for your existing trail setup.  The
@@ -71,7 +79,7 @@ Resources:
                   - ':root'
             Condition:
               StringEquals:
-                'sts:ExternalId': !Ref ExternalID
+                'sts:ExternalId': !Sub [ 'lweid:aws:v2:${LaceworkAccount}:${AWS::AccountId}:${ExternalID}', { LaceworkAccount: !Ref LaceworkAccount, ExternalID: !Ref ExternalID } ]
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:
@@ -153,7 +161,7 @@ Outputs:
       - Arn
   ExternalID:
     Description: ExternalID to share with Lacework for CloudTrail integration
-    Value: !Ref ExternalID
+    Value: !Sub [ 'lweid:aws:v2:${LaceworkAccount}:${AWS::AccountId}:${ExternalID}', { LaceworkAccount: !Ref LaceworkAccount, ExternalID: !Ref ExternalID } ]
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
     Value: !Ref SqsQueueUrl
