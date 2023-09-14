@@ -163,7 +163,7 @@ def cfn_stack_set_processing(messages):
                     if not stack_set_instance_exists(config_stack_set_name, acct):
                         create_stack_instance_list.append(acct)
 
-                external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+                external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
                 if len(create_stack_instance_list) > 0:
                     response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
                                                           param_regions, [

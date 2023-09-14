@@ -96,7 +96,7 @@ def create(event, context):
     existing_cloudtrail = os.environ['existing_cloudtrail']
     management_account_id = context.invoked_function_arn.split(":")[4]
     region_name = context.invoked_function_arn.split(":")[3]
-    external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
+    external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
     # these env vars are expected to be used for testing only - QA
     lacework_custom_sns = os.environ['lacework_custom_sns']
