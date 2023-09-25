@@ -352,12 +352,6 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                         "ResolvedValue": "string"
                     },
                     {
-                        "ParameterKey": "AccessToken",
-                        "ParameterValue": access_token,
-                        "UsePreviousValue": False,
-                        "ResolvedValue": "string"
-                    },
-                    {
                         "ParameterKey": "ExistingTrailBucketName",
                         "ParameterValue": cloudtrail_s3_bucket,
                         "UsePreviousValue": False,
