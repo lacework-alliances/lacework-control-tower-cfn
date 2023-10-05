@@ -115,11 +115,11 @@ def create(event, context):
                              audit_account_template, access_token, external_id, existing_cloudtrail)
         if "Config" in capability_type:
             setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, lacework_sub_account_name,
-                        lacework_account_sns,
-                        existing_accounts,
-                        member_account_template,
-                        management_account_id,
-                        region_name, access_token, external_id, lacework_custom_sns)
+                         lacework_account_sns,
+                         existing_accounts,
+                         member_account_template,
+                         management_account_id,
+                         region_name, access_token, external_id, lacework_custom_sns)
 
     except Exception as setup_exception:
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
