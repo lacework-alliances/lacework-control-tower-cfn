@@ -105,6 +105,7 @@ Parameters:
     AllowedValues:
       - 'CloudTrail+Config'
       - 'Config'
+      - 'CloudTrail'
     Type: String
     Default: CloudTrail+Config
     Description: "Enter the Lacework Control Tower StackSet type to use."
