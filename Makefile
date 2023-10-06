@@ -6,7 +6,7 @@ CFT_PREFIX := templates
 CFT_DIR := templates
 DATASET := lacework-alliances-prod
 
-PROFILE ?= ct
+PROFILE ?= alliances-admin
 REGION ?= us-west-2
 
 BUCKET_NAME ?= service_not_defined

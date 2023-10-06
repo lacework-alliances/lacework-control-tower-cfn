@@ -52,3 +52,98 @@ Resources:
                 'sts:ExternalId': !Ref ExternalID
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
+  LaceworkCWSPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: LaceworkCWSPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: GetEc2DefaultEncryption
+            Action:
+              - 'ec2:GetEbsEncryptionByDefault'
+            Effect: Allow
+            Resource: '*'
+          - Sid: EksListTagsForResource
+            Action:
+              - 'eks:ListTagsForResource'
+            Effect: Allow
+            Resource: '*'
+          - Sid: EfsPolicies
+            Action:
+              - 'elasticfilesystem:DescribeFileSystemPolicy'
+              - 'elasticfilesystem:DescribeLifecycleConfiguration'
+              - 'elasticfilesystem:DescribeAccessPoints'
+              - 'elasticfilesystem:DescribeAccountPreferences'
+              - 'elasticfilesystem:DescribeBackupPolicy'
+              - 'elasticfilesystem:DescribeReplicationConfigurations'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SagemakerPolicies
+            Action:
+              - 'sagemaker:GetLineageGroupPolicy'
+              - 'sagemaker:GetModelPackageGroupPolicy'
+            Effect: Allow
+            Resource: '*'
+          - Sid: IdentityStoreReadOnly
+            Action:
+              - 'identitystore:DescribeGroup'
+              - 'identitystore:DescribeGroupMembership'
+              - 'identitystore:DescribeUser'
+              - 'identitystore:ListGroupMemberships'
+              - 'identitystore:ListGroupMembershipsForMember'
+              - 'identitystore:ListGroups'
+              - 'identitystore:ListUsers'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SSOReadOnly
+            Action:
+              - 'sso:DescribeAccountAssignmentDeletionStatus'
+              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
+              - 'sso:GetInlinePolicyForPermissionSet'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAY
+            Action:
+              - 'apigateway:GetApiKeys'
+              - 'apigateway:GetAuthorizers'
+              - 'apigateway:GetBasePathMappings'
+              - 'apigateway:GetClientCertificates'
+              - 'apigateway:GetDeployments'
+              - 'apigateway:GetDocumentationParts'
+              - 'apigateway:GetDocumentationVersions'
+              - 'apigateway:GetDomainNames'
+              - 'apigateway:GetGatewayResponses'
+              - 'apigateway:GetModels'
+              - 'apigateway:GetModelTemplate'
+              - 'apigateway:GetRequestValidators'
+              - 'apigateway:GetResources'
+              - 'apigateway:GetRestApis'
+              - 'apigateway:GetSdk'
+              - 'apigateway:GetSdkTypes'
+              - 'apigateway:GetStages'
+              - 'apigateway:GetTags'
+              - 'apigateway:GetUsagePlanKeys'
+              - 'apigateway:GetUsagePlans'
+              - 'apigateway:GetVpcLinks'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAYV2
+            Action:
+              - 'apigatewayv2:GetApis'
+              - 'apigatewayv2:GetApiMappings'
+              - 'apigatewayv2:GetAuthorizers'
+              - 'apigatewayv2:GetDeployments'
+              - 'apigatewayv2:GetDomainNames'
+              - 'apigatewayv2:GetIntegrations'
+              - 'apigatewayv2:GetIntegrationResponses'
+              - 'apigatewayv2:GetModelTemplate'
+              - 'apigatewayv2:GetModels'
+              - 'apigatewayv2:GetRoute'
+              - 'apigatewayv2:GetRouteResponses'
+              - 'apigatewayv2:GetStages'
+              - 'apigatewayv2:GetVpcLinks'
+            Effect: Allow
+            Resource: '*'
+      Roles:
+        - !Ref LaceworkCrossAccountAccessRole

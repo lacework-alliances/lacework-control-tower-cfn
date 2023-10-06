@@ -1,7 +1,7 @@
 PROJECT = LaceworkCTAuth
 DIR_NAME = auth
-FUNCTION = $(PROJECT)
-DIST_DIR ?= "$(BASE)"/functions/packages/$(DIR_NAME)
+FUNCTION = $(PROJECT)3.0.1
+DIST_DIR ?= "$(BASE)"/lambda_functions/packages/$(DIR_NAME)
 
 all: build
 

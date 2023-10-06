@@ -168,12 +168,6 @@ def cfn_stack_set_processing(messages):
                     response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
                                                           param_regions, [
                                                               {
-                                                                  "ParameterKey": "AccessToken",
-                                                                  "ParameterValue": access_token,
-                                                                  "UsePreviousValue": False,
-                                                                  "ResolvedValue": "string"
-                                                              },
-                                                              {
                                                                   "ParameterKey": "ExternalID",
                                                                   "ParameterValue": external_id,
                                                                   "UsePreviousValue": False,

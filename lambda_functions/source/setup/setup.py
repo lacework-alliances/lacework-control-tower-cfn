@@ -530,18 +530,6 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
                     "ResolvedValue": "string"
                 },
                 {
-                    "ParameterKey": "AccessToken",
-                    "ParameterValue": access_token,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "ServiceToken",
-                    "ParameterValue": service_token,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
                     "ParameterKey": "LaceworkAWSAccountId",
                     "ParameterValue": lacework_aws_account_id,
                     "UsePreviousValue": False,

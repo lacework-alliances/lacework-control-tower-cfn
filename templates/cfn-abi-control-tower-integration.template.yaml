@@ -186,9 +186,9 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/setup/LaceworkCTSetup3.0.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/setup/LaceworkCTSetup3.0.1.zip']]
       Handler: setup.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 900
       Environment:
         Variables:
@@ -418,9 +418,9 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.0.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.0.1.zip']]
       Handler: account.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 900
       Environment:
         Variables:
@@ -463,9 +463,9 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth3.0.1.zip']]
       Handler: auth.lambda_handler
-      Runtime: python3.7
+      Runtime: python3.9
       Timeout: 120
       Environment:
         Variables:
