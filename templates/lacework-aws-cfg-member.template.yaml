@@ -21,13 +21,6 @@ Parameters:
     Type: String
     MinLength: '2'
     MaxLength: '1224'
-  LaceworkAWSAccountId:
-    Type: String
-    Default: "434813966438"
-    MinLength: '12'
-    MaxLength: '12'
-    AllowedPattern: '^\d{12}$'
-    Description: "Enter the Lacework AWS Account ID. Change this FOR TESTING ONLY!"
 Resources:
   LaceworkCrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
@@ -45,7 +38,7 @@ Resources:
               AWS: !Join
                 - ''
                 - - 'arn:aws:iam::'
-                  - !Ref LaceworkAWSAccountId
+                  - '434813966438'
                   - ':root'
             Condition:
               StringEquals:

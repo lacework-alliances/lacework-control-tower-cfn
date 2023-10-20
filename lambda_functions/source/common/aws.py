@@ -7,11 +7,14 @@ import time
 
 import requests
 
+RETRIES = 10
+RETRY_WAIT = 60
+
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
 
-STACK_SET_SUCCESS_STATES = ["SUCCEEDED"]
-STACK_SET_RUNNING_STATES = ["RUNNING", "STOPPING"]
+STACK_SET_OPERATION_SUCCESS_STATES = ["SUCCEEDED"]
+STACK_SET_OPERATION_RUNNING_STATES = ["RUNNING", "STOPPING"]
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
@@ -128,13 +131,14 @@ def get_org_for_account(acct, orgs):
         return None
 
 
-def create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides=[]):
+def create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides=[], retry=1):
     logger.info("aws.create_stack_set_instances called.")
     logger.info("Create stack name={} accounts={} regions={} parameter_overrides={} ".format(stack_set_name, accounts,
                                                                                              regions,
                                                                                              parameter_overrides))
     cloud_formation_client = boto3.client("cloudformation")
-    return cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
+    try:
+        return cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
                                                          Accounts=accounts,
                                                          Regions=regions,
                                                          ParameterOverrides=parameter_overrides,
@@ -143,23 +147,42 @@ def create_stack_set_instances(stack_set_name, accounts, regions, parameter_over
                                                              'MaxConcurrentCount': 100,
                                                              'FailureToleranceCount': 999
                                                          })
+    except Exception as e:
+        if e.response['Error']['Code'] == 'OperationInProgressException':
+            logger.info("StackSet {} already in progress.".format(stack_set_name))
+            if retry < RETRIES:
+                logger.info("Retrying in {} seconds.".format(retry * RETRY_WAIT))
+                time.sleep(retry * RETRY_WAIT)
+                return create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides, retry + 1)
+            else:
+                logger.error("Retried {} times. Giving up.".format(RETRIES))
+                raise e
 
 
-def delete_stack_set_instances(config_stack_set_name, account_list, region_list):
+def delete_stack_set_instances(stack_set_name, account_list, region_list, retry=1):
     logger.info("aws.delete_stack_set_instances called.")
     try:
         cloud_formation_client = boto3.client("cloudformation")
         response = cloud_formation_client.delete_stack_instances(
-            StackSetName=config_stack_set_name,
+            StackSetName=stack_set_name,
             Accounts=account_list,
             Regions=region_list,
             RetainStacks=False)
         logger.info(response)
 
-        wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
-    except Exception as delete_exception:
-        logger.warning("Failed to delete stack instances: {} {} {} {}".format(config_stack_set_name, account_list,
-                                                                              region_list, delete_exception))
+        wait_for_stack_set_operation(stack_set_name, response['OperationId'])
+    except Exception as e:
+        if e.response['Error']['Code'] == 'OperationInProgressException':
+            logger.info("StackSet {} already in progress.".format(stack_set_name))
+            if retry < RETRIES:
+                logger.info("Retrying in {} seconds.".format(retry * RETRY_WAIT))
+                time.sleep(retry * RETRY_WAIT)
+                delete_stack_set_instances(stack_set_name, account_list, region_list, retry + 1)
+            else:
+                logger.error("Retried {} times. Giving up.".format(RETRIES))
+                raise e
+        else:
+            logger.error("Exception deleting stack set instances: {}".format(e))
 
 
 def wait_for_stack_set_operation(stack_set_name, operation_id):
@@ -170,19 +193,19 @@ def wait_for_stack_set_operation(stack_set_name, operation_id):
     status = ""
     count = 1
     while not finished:
-        time.sleep(count * 20)
+        time.sleep(count * RETRY_WAIT)
         status = \
             cloudformation_client.describe_stack_set_operation(StackSetName=stack_set_name, OperationId=operation_id)[
                 "StackSetOperation"
             ]["Status"]
-        if status in STACK_SET_RUNNING_STATES:
+        if status in STACK_SET_OPERATION_RUNNING_STATES:
             logger.info("{} {} still running.".format(stack_set_name, operation_id))
         else:
             finished = True
         count += 1
 
     logger.info("StackSet Operation finished with Status: {}".format(status))
-    if status not in STACK_SET_SUCCESS_STATES:
+    if status not in STACK_SET_OPERATION_SUCCESS_STATES:
         return False
     else:
         return True

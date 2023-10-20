@@ -98,15 +98,11 @@ def create(event, context):
     region_name = context.invoked_function_arn.split(":")[3]
     external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
-    # these env vars are expected to be used for testing only - QA
-    lacework_custom_sns = os.environ['lacework_custom_sns']
-    lacework_aws_account_id = os.environ['lacework_aws_account_id']
-
     try:
         access_token = setup_initial_access_token(lacework_url, lacework_api_credentials)
 
         if "CloudTrail" in capability_type:
-            setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account_name, region_name,
+            setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                              management_account_id,
                              log_account_name,
                              kms_key_id_arn,
@@ -114,12 +110,12 @@ def create(event, context):
                              audit_account_name,
                              audit_account_template, access_token, external_id, existing_cloudtrail)
         if "Config" in capability_type:
-            setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, lacework_sub_account_name,
+            setup_config(lacework_account_name, lacework_sub_account_name,
                          lacework_account_sns,
                          existing_accounts,
                          member_account_template,
                          management_account_id,
-                         region_name, access_token, external_id, lacework_custom_sns)
+                         region_name, external_id)
 
     except Exception as setup_exception:
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
@@ -272,7 +268,7 @@ def delete(event, context):
     return None
 
 
-def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account_name, region_name,
+def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                      management_account_id, log_account_name,
                      kms_key_id_arn, log_account_template, audit_account_name, audit_account_template, access_token,
                      external_id, existing_cloudtrail):
@@ -372,12 +368,6 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                     {
                         "ParameterKey": "SqsQueueArn",
                         "ParameterValue": sqs_queue_arn,
-                        "UsePreviousValue": False,
-                        "ResolvedValue": "string"
-                    },
-                    {
-                        "ParameterKey": "LaceworkAWSAccountId",
-                        "ParameterValue": lacework_aws_account_id,
                         "UsePreviousValue": False,
                         "ResolvedValue": "string"
                     }
@@ -486,18 +476,17 @@ def setup_cloudtrail(lacework_aws_account_id, lacework_url, lacework_sub_account
                                   lacework_sub_account_name)
 
 
-def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, lacework_sub_account_name,
+def setup_config(lacework_account_name, lacework_sub_account_name,
                  lacework_account_sns,
                  existing_accounts,
                  member_account_template,
-                 management_account_id, region_name, access_token, external_id, lacework_custom_sns):
+                 management_account_id, region_name, external_id):
     logger.info("setup.setup_config called.")
     cloudformation_client = boto3.client("cloudformation")
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
                                 (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
         account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
-        service_token = get_service_token(lacework_aws_account_id, lacework_url, region_name, lacework_custom_sns)
         cloudformation_client.describe_stack_set(StackSetName=config_stack_set_name)
         logger.info("Stack set {} already exist".format(config_stack_set_name))
     except Exception as describe_exception:
@@ -526,12 +515,6 @@ def setup_config(lacework_aws_account_id, lacework_url, lacework_account_name, l
                 {
                     "ParameterKey": "ExternalID",
                     "ParameterValue": external_id,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "LaceworkAWSAccountId",
-                    "ParameterValue": lacework_aws_account_id,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }
@@ -580,40 +563,31 @@ def get_account_from_url(lacework_url):
     return lacework_url.split('.')[0]
 
 
-def get_service_token(lacework_aws_account_id, lacework_url, region_name, lacework_custom_sns):
-    if not lacework_custom_sns and ".fra." in lacework_url:
-        return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":euprodn-customer-cloudformation"
-    elif not lacework_custom_sns:
-        return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":prodn-customer-cloudformation"
-    else:
-        return "arn:aws:sns:" + region_name + ":" + lacework_aws_account_id + ":" + lacework_custom_sns
-
-
 def get_sqs_queue_arn(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):
     if not lacework_sub_account_name:
         return "arn:aws:sqs:" + region_name + ":" + audit_account_id + ":" \
-               + lacework_account_name + "-laceworkcws"
+            + lacework_account_name + "-laceworkcws"
     else:
         return "arn:aws:sqs:" + region_name + ":" + audit_account_id + ":" \
-               + lacework_sub_account_name + "-laceworkcws"
+            + lacework_sub_account_name + "-laceworkcws"
 
 
 def get_sqs_queue_url(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):
     if not lacework_sub_account_name:
         return "https://sqs." + region_name + ".amazonaws.com/" + audit_account_id + "/" \
-               + lacework_account_name + "-laceworkcws"
+            + lacework_account_name + "-laceworkcws"
     else:
         return "https://sqs." + region_name + ".amazonaws.com/" + audit_account_id + "/" \
-               + lacework_sub_account_name + "-laceworkcws"
+            + lacework_sub_account_name + "-laceworkcws"
 
 
 def get_cross_account_access_role(lacework_account_name, lacework_sub_account_name, log_account_id):
     if not lacework_sub_account_name:
         return "arn:aws:iam::" + log_account_id + ":role/" \
-               + lacework_account_name + "-laceworkcwssarole"
+            + lacework_account_name + "-laceworkcwssarole"
     else:
         return "arn:aws:iam::" + log_account_id + ":role/" \
-               + lacework_sub_account_name + "-laceworkcwssarole"
+            + lacework_sub_account_name + "-laceworkcwssarole"
 
 
 def get_log_stack_name(lacework_account_name, lacework_sub_account_name):

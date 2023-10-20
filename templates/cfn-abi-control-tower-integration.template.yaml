@@ -31,8 +31,6 @@ Metadata:
           - CTLogAccountTemplate
           - CTAuditAccountTemplate
           - CFGMemberAccountTemplate
-          - LaceworkAWSAccountId
-          - LaceworkCustomSNS
     ParameterLabels:
       LaceworkURL:
         default: Your Lacework URL
@@ -66,10 +64,6 @@ Metadata:
         default: Audit Account Cloudformation Template
       CFGMemberAccountTemplate:
         default: Member Account Cloudformation Template
-      LaceworkAWSAccountId:
-        default: Lacework AWS Account ID
-      LaceworkCustomSNS:
-        default: Lacework Custom SNS Topic
 Parameters:
   # basic
   LaceworkURL:
@@ -168,17 +162,6 @@ Parameters:
     Default: lacework-aws-cfg-member.template.yaml
     MinLength: '1'
     Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
-  LaceworkAWSAccountId:
-    Type: String
-    Default: "434813966438"
-    MinLength: '12'
-    MaxLength: '12'
-    AllowedPattern: '^\d{12}$'
-    Description: "Enter the Lacework AWS Account ID. Change this FOR TESTING ONLY!"
-  LaceworkCustomSNS:
-    Type: String
-    Default: ""
-    Description: "Enter the custom Lacework SNS topic name. Change this FOR TESTING ONLY!"
 Resources:
   LaceworkSetupFunction:
     Type: AWS::Lambda::Function
@@ -186,7 +169,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/setup/LaceworkCTSetup3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/setup/LaceworkCTSetup3.2.0.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -206,8 +189,6 @@ Resources:
           audit_account_name: !Ref AuditAccountName
           audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/submodules/lacework-control-tower-cfn/templates/${CTAuditAccountTemplate}"
           member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/submodules/lacework-control-tower-cfn/templates/${CFGMemberAccountTemplate}"
-          lacework_aws_account_id: !Ref LaceworkAWSAccountId
-          lacework_custom_sns: !Ref LaceworkCustomSNS
           cfn_stack: !Ref AWS::StackName
           cfn_stack_id: !Ref AWS::StackId
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
@@ -418,7 +399,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.2.0.zip']]
       Handler: account.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -463,7 +444,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth3.2.0.zip']]
       Handler: auth.lambda_handler
       Runtime: python3.9
       Timeout: 120

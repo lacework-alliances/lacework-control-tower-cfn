@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.1.0 Supports CT LZ 3.0 and AWS Built-in"
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.2.0 Supports CT LZ 3.0 and AWS Built-in"
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -31,8 +31,6 @@ Metadata:
           - CTLogAccountTemplate
           - CTAuditAccountTemplate
           - CFGMemberAccountTemplate
-          - LaceworkAWSAccountId
-          - LaceworkCustomSNS
     ParameterLabels:
       LaceworkURL:
         default: Your Lacework URL
@@ -66,10 +64,6 @@ Metadata:
         default: Audit Account Cloudformation Template
       CFGMemberAccountTemplate:
         default: Member Account Cloudformation Template
-      LaceworkAWSAccountId:
-        default: Lacework AWS Account ID
-      LaceworkCustomSNS:
-        default: Lacework Custom SNS Topic
 Parameters:
   # basic
   LaceworkURL:
@@ -168,17 +162,6 @@ Parameters:
     Default: lacework-aws-cfg-member.template.yaml
     MinLength: '1'
     Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
-  LaceworkAWSAccountId:
-    Type: String
-    Default: "434813966438"
-    MinLength: '12'
-    MaxLength: '12'
-    AllowedPattern: '^\d{12}$'
-    Description: "Enter the Lacework AWS Account ID. Change this FOR TESTING ONLY!"
-  LaceworkCustomSNS:
-    Type: String
-    Default: ""
-    Description: "Enter the custom Lacework SNS topic name. Change this FOR TESTING ONLY!"
 Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
@@ -191,9 +174,9 @@ Resources:
       SourceBucket: !Ref 'S3BucketName'
       Prefix: !Ref 'S3KeyPrefix'
       Objects:
-        - '/lambda/LaceworkCTAuth3.0.1.zip'
-        - '/lambda/LaceworkCTSetup3.0.1.zip'
-        - '/lambda/LaceworkCTAccount3.0.1.zip'
+        - '/lambda/LaceworkCTAuth3.2.0.zip'
+        - '/lambda/LaceworkCTSetup3.2.0.zip'
+        - '/lambda/LaceworkCTAccount3.2.0.zip'
 
   CopyZipsRole:
     Type: AWS::IAM::Role
@@ -294,7 +277,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.2.0.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -314,8 +297,6 @@ Resources:
           audit_account_name: !Ref AuditAccountName
           audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
           member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
-          lacework_aws_account_id: !Ref LaceworkAWSAccountId
-          lacework_custom_sns: !Ref LaceworkCustomSNS
           cfn_stack: !Ref AWS::StackName
           cfn_stack_id: !Ref AWS::StackId
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
@@ -525,7 +506,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.2.0.zip']]
       Handler: account.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -570,7 +551,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAuth3.0.1.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAuth3.2.0.zip']]
       Handler: auth.lambda_handler
       Runtime: python3.9
       Timeout: 120
