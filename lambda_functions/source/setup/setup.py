@@ -37,9 +37,15 @@ HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
-LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
-AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
-CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
+if os.environ.get('lacework_integration_name_prefix') is not None:
+    CONFIG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix'))
+    LOG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix')) + "CloudTrail-Log-Account-"
+    AUDIT_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix')) + "CloudTrail-Audit-Account-"
+else:
+    LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
+    AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
+    CONFIG_NAME_PREFIX= "Lacework-Control-Tower-Config-Member-"
+    
 
 DESCRIPTION = "Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
 "and automated AWS security monitoring."
@@ -483,6 +489,8 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                  management_account_id, region_name, external_id):
     logger.info("setup.setup_config called.")
     cloudformation_client = boto3.client("cloudformation")
+    org_client = boto3.client('organizations')
+
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
                                 (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
@@ -545,12 +553,19 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                 page_iterator = paginator.paginate(StackSetName=ct_cloudtrail_stack)
                 for page in page_iterator:
                     for inst in page['Summaries']:
+                        #logger.info("DEBUG Stack Set inst Details {}".format(inst))
                         account_set.add(inst['Account'])
                 account_list = list(account_set)
+                account_dict = {}
+                for acct_id in account_list:
+                    account_name = get_aws_account_name(acct_id, org_client)
+                    if account_name:
+                        account_dict[acct_id] = account_name
+
                 if len(account_list) > 0:
                     send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
                                          "add {} existing".format(len(account_list)), lacework_sub_account_name)
-                    send_to_account_function(account_list, [region_name], config_stack_set_name, lacework_account_sns)
+                    send_to_account_function(account_list, account_dict, [region_name], config_stack_set_name, lacework_account_sns)
             except Exception as create_exception:
                 raise error_exception("Exception creating stack instances with {}".format(create_exception),
                                       HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
@@ -561,6 +576,18 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
 
 def get_account_from_url(lacework_url):
     return lacework_url.split('.')[0]
+
+
+def get_aws_account_name(account_id, org_client):
+    logger.info("setup.get_aws_account_name called.")
+    try:
+        logger.info("Getting account Name for account id {}".format(account_id))
+        response = org_client.describe_account(AccountId=account_id)
+        logger.info("Account name for id {} is {}".format(account_id, response['Account']['Name']))
+        return response['Account']['Name']
+    except Exception as e:
+        logger.error(f"Error getting account name for {account_id}: {e}")
+        return None
 
 
 def get_sqs_queue_arn(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):
@@ -604,11 +631,11 @@ def get_audit_stack_name(lacework_account_name, lacework_sub_account_name):
         return AUDIT_NAME_PREFIX + lacework_sub_account_name
 
 
-def send_to_account_function(account_list, region_list, config_stack_set_name, lacework_account_sns):
+def send_to_account_function(account_list, account_dict, region_list, config_stack_set_name, lacework_account_sns):
     logger.info("setup.send_to_account_function accounts: {}".format(account_list))
     sns_client = boto3.client("sns")
     message_body = {
-        config_stack_set_name: {"target_accounts": account_list, "target_regions": region_list}}
+        config_stack_set_name: {"target_accounts": account_list, "target_regions": region_list, "target_accounts_dict": account_dict}}
     try:
         sns_response = sns_client.publish(
             TopicArn=lacework_account_sns,
