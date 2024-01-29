@@ -26,6 +26,7 @@ Metadata:
       - Label:
           default: "Advanced Configuration (Optional)"
         Parameters:
+          - IntegrationNamePrefix
           - S3BucketName
           - S3KeyPrefix
           - CTLogAccountTemplate
@@ -54,6 +55,8 @@ Metadata:
         default: Audit Account Name
       KMSKeyIdentifierARN:
         default: KMS Key Identifier ARN for CloudTrail S3 Logs Decrypt
+      IntegrationNamePrefix:
+        default: Lacework integration name Prefix
       S3BucketName:
         default: Cloudformation S3 Bucket
       S3KeyPrefix:
@@ -137,6 +140,12 @@ Parameters:
     Type: String
     MaxLength: '256'
 # advanced
+  IntegrationNamePrefix:
+    Type: String
+    Default: Lacework-Control-Tower-Config-Member-
+    AllowedPattern: '^[-a-zA-Z0-9\s]*$'
+    MinLength: '1'
+    Description: "Enter the prefix for the integration name in Lacework. Use this if you want to customize your deployment."
   S3BucketName:
     Type: String
     Default: lacework-alliances
@@ -288,6 +297,7 @@ Resources:
           lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_account_sns: !Ref LaceworkAccountSNS
+          lacework_integration_name_prefix: !Ref IntegrationNamePrefix
           capability_type: !Ref CapabilityType
           existing_accounts: !Ref ExistingAccounts
           existing_cloudtrail: !Ref ExistingCloudTrail
@@ -468,13 +478,13 @@ Resources:
             - cloudformation:DescribeStackSetOperation
             - cloudformation:DeleteStackInstances
             Resource:
-              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/Lacework-Control-Tower-Config-Member*' ]]
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/', !Ref 'IntegrationNamePrefix', '*' ]]
           - Sid: StackSetOperations
             Effect: Allow
             Action:
             - cloudformation:DescribeStackSet
             Resource:
-              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/Lacework-*' ]]
+              !Join ['', ['arn:aws:cloudformation:', '*', ':', '*', ':stackset/', !Ref 'IntegrationNamePrefix', '*' ]]
           - Sid: SNSOps
             Effect: Allow
             Action:
@@ -517,6 +527,7 @@ Resources:
           lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
+          lacework_integration_name_prefix: !Ref IntegrationNamePrefix
       Role: !GetAtt LaceworkAccountFunctionRole.Arn
 
   LaceworkAuthFunctionRole:

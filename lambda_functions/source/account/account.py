@@ -34,7 +34,7 @@ HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
-CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
+CONFIG_NAME_PREFIX = os.environ.get('lacework_integration_name_prefix', 'Lacework-Control-Tower-Config-Member-')
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
@@ -45,7 +45,7 @@ HANDLED_EVENTS = {'CreateManagedAccount', 'UpdateManagedAccount'}
 
 def lambda_handler(event, context):
     logger.info("account.lambda_handler called.")
-    logger.info(json.dumps(event))
+    #logger.info(json.dumps(event))
     try:
         # called from stack_setSNS
         if 'Records' in event:
@@ -68,22 +68,23 @@ def stack_set_sns_processing(messages):
 
 def lifecycle_eventbridge_processing(event):
     logger.info("account.lifecycle_eventbridge_processing called.")
-    logger.info(json.dumps(event))
     if 'createManagedAccountStatus' in event['detail']['serviceEventDetails'] and \
             event['detail']['serviceEventDetails']['createManagedAccountStatus']['state'] == "SUCCEEDED":
         account_id = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountId']
+        account_name = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountName']
         logger.info("Processing createManagedAccountStatus event for account: {}".format(account_id))
-        process_ct_lifecycle_event(account_id, event)
+        process_ct_lifecycle_event(account_id, account_name, event)
     elif 'updateManagedAccountStatus' in event['detail']['serviceEventDetails'] and \
             event['detail']['serviceEventDetails']['updateManagedAccountStatus']['state'] == "SUCCEEDED":
         account_id = event['detail']['serviceEventDetails']['updateManagedAccountStatus']['account']['accountId']
+        account_name = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountName']
         logger.info("Processing updateManagedAccountStatus event for account: {}".format(account_id))
-        process_ct_lifecycle_event(account_id, event)
+        process_ct_lifecycle_event(account_id, account_name, event)
     else:
         logger.error("Invalid event state, expected: SUCCEEDED : {}".format(event))
 
 
-def process_ct_lifecycle_event(account_id, event):
+def process_ct_lifecycle_event(account_id, account_name, event):
     region = event['detail']['awsRegion']
     lacework_url = os.environ['lacework_url']
     lacework_account_name = get_account_from_url(lacework_url)
@@ -93,9 +94,10 @@ def process_ct_lifecycle_event(account_id, event):
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
     logger.info("Processing Lifecycle event for {} in {}".format(account_id, region))
-    message_body = {config_stack_set_name: {"target_accounts": [account_id],
+    message_body = {config_stack_set_name: {"target_accounts_dict": {account_id: account_name},
                                             "target_regions": [region]}}
     cfn_stack_set_processing(message_body)
+    logger.info("Message Body sent to processing {}".format(message_body))
 
 
 def cfn_stack_set_processing(messages):
@@ -116,7 +118,7 @@ def cfn_stack_set_processing(messages):
 
     for config_stack_set_name, params in messages.items():
         logger.info("Processing stack instances for {}".format(config_stack_set_name))
-        param_accounts = params['target_accounts']
+        param_accounts = params['target_accounts_dict']
         param_regions = params['target_regions']
         logger.info("Target accounts : {}".format(param_accounts))
         logger.info("Target regions: {}".format(param_regions))
@@ -139,19 +141,20 @@ def cfn_stack_set_processing(messages):
 
             if stack_operations:
                 valid_account_list = []
-                for acct in param_accounts:
-                    if is_account_valid(acct, lacework_org_sub_account_names):
-                        logger.info("Adding valid acct {}".format(acct))
-                        valid_account_list.append(acct)
+
+                for acct_id, acct_name in param_accounts.items():   
+                    if is_account_valid(acct_id, lacework_org_sub_account_names):
+                        logger.info("Adding valid acct {} ({})".format(acct_name, acct_id))
+                        valid_account_list.append({'id': acct_id, 'name': acct_name})
                     elif lacework_org_sub_account_names and \
-                            lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, access_token,
+                            lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, access_token,
                                                             lacework_org_sub_account_names):
-                        delete_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct,
+                        delete_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct_name,
                                                         lacework_url, access_token, lacework_org_sub_account_names)
-                        logger.info("Deleting acct {} from Lacework. Moved out of specified orgs.".format(acct))
-                        delete_stack_set_instances(config_stack_set_name, [acct], param_regions)
+                        logger.info("Deleting acct {} from Lacework. Moved out of specified orgs.".format(acct_name))
+                        delete_stack_set_instances(config_stack_set_name, [acct_id], param_regions)
                     else:
-                        logger.info("Skipping acct {}".format(acct))
+                        logger.info("Skipping acct {} ({})".format(acct_name, acct_id))
 
                 if len(valid_account_list) == 0:
                     logger.warning("No valid accounts to add to Lacework: {}.".format(param_accounts))
@@ -160,8 +163,9 @@ def cfn_stack_set_processing(messages):
                 # check if stack_set_instance_exists()
                 create_stack_instance_list = []
                 for acct in valid_account_list:
-                    if not stack_set_instance_exists(config_stack_set_name, acct):
-                        create_stack_instance_list.append(acct)
+                    acct_id = acct['id']
+                    if not stack_set_instance_exists(config_stack_set_name, acct_id):
+                        create_stack_instance_list.append(acct_id)
 
                 external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 if len(create_stack_instance_list) > 0:
@@ -180,27 +184,29 @@ def cfn_stack_set_processing(messages):
                     time.sleep(10)
 
                 for acct in valid_account_list:
-                    org_name = get_org_for_account(acct, lacework_org_sub_account_names)
+                    acct_id = acct['id']
+                    acct_name = acct['name']
+                    org_name = get_org_for_account(acct_id, lacework_org_sub_account_names)
                     account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
                     sub_account_name = account_name if not org_name else org_name
-                    role_arn = get_cross_account_access_role(lacework_account_name, account_name, acct)
+                    role_arn = get_cross_account_access_role(lacework_account_name, account_name, acct_id)
                     if lacework_org_sub_account_names:
-                        if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, access_token,
+                        if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, access_token,
                                                            lacework_org_sub_account_names):
-                            update_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                            update_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
                                                             access_token,
-                                                            lacework_org_sub_account_names, role_arn, acct)
+                                                            lacework_org_sub_account_names, role_arn, acct_id)
                         else:
-                            add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                            add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
                                                          access_token,
                                                          external_id,
-                                                         role_arn, acct)
+                                                         role_arn, acct_id)
                     else:
-                        add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct, lacework_url, sub_account_name,
+                        add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
                                                      access_token,
                                                      external_id,
-                                                     role_arn, acct)
-                    logger.info("Added acct {} to {} in Lacework".format(acct, account_name))
+                                                     role_arn, acct_id)
+                    logger.info("Added acct {} to {} in Lacework".format(acct_id, account_name))
             else:
                 logger.warning("Existing stack_set operations still running")
                 message_body = {config_stack_set_name: messages[config_stack_set_name]}
