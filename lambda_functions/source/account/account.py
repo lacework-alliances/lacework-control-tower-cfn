@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import time
+import re
 
 from aws import list_stack_instance_by_account_region, is_account_valid, wait_for_stack_set_operation, \
     get_org_for_account, create_stack_set_instances, stack_set_instance_exists, delete_stack_set_instances
@@ -111,6 +112,7 @@ def cfn_stack_set_processing(messages):
     lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
     access_token = get_access_token(lacework_api_credentials)
+    external_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
     if access_token is None:
         logger.error("Unable to get Lacework access token. Failed to create stack instances.")
@@ -166,14 +168,12 @@ def cfn_stack_set_processing(messages):
                     acct_id = acct['id']
                     if not stack_set_instance_exists(config_stack_set_name, acct_id):
                         create_stack_instance_list.append(acct_id)
-
-                external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 if len(create_stack_instance_list) > 0:
                     response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
                                                           param_regions, [
                                                               {
-                                                                  "ParameterKey": "ExternalID",
-                                                                  "ParameterValue": external_id,
+                                                                  "ParameterKey": "ExternalSuffix",
+                                                                  "ParameterValue": external_suffix,
                                                                   "UsePreviousValue": False,
                                                                   "ResolvedValue": "string"
                                                               }
@@ -190,6 +190,7 @@ def cfn_stack_set_processing(messages):
                     account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
                     sub_account_name = account_name if not org_name else org_name
                     role_arn = get_cross_account_access_role(lacework_account_name, account_name, acct_id)
+                    external_id = "lweid:aws:v2:%s:%s:%s" % (lacework_account_name, acct_id, external_suffix)
                     if lacework_org_sub_account_names:
                         if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, access_token,
                                                            lacework_org_sub_account_names):

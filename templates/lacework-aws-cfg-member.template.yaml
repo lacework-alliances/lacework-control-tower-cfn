@@ -13,16 +13,11 @@ Parameters:
     ConstraintDescription: >-
       Invalid resource name prefix.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
-  ExternalID:
-    Default: 4CEBE3B
-    Description: >-
-      The cross-account access role created by the stack will use this value for
-      its ExternalID.
+  ExternalSuffix:
+    Default: ExternalSuffix
     Type: String
-    MinLength: '2'
-    MaxLength: '1224'
 Resources:
-  LaceworkCrossAccountAccessRole:
+  LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
     Properties:
       RoleName: !Join
@@ -35,14 +30,10 @@ Resources:
           - Action: 'sts:AssumeRole'
             Effect: Allow
             Principal:
-              AWS: !Join
-                - ''
-                - - 'arn:aws:iam::'
-                  - '434813966438'
-                  - ':root'
+              AWS: 'arn:aws:iam::434813966438:role/lacework-platform'
             Condition:
               StringEquals:
-                'sts:ExternalId': !Ref ExternalID
+                'sts:ExternalId': !Join [':',[!Sub "lweid:aws:v2:${ResourceNamePrefix}:${AWS::AccountId}", !Ref ExternalSuffix]]
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:
@@ -52,14 +43,21 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Sid: GetEc2DefaultEncryption
+          - Sid: GetAccountAlias
             Action:
-              - 'ec2:GetEbsEncryptionByDefault'
+              - 'iam:ListAccountAliases'
             Effect: Allow
             Resource: '*'
-          - Sid: EksListTagsForResource
+          - Sid: Debug
             Action:
+              - 'cloudtrail:DescribeTrails'
+              - 'cloudtrail:GetTrailStatus'
               - 'eks:ListTagsForResource'
+              - 's3:GetBucketPolicy'
+              - 's3:GetBucketLocation'
+              - 'sns:GetTopicAttributes'
+              - 'sns:ListSubscriptions'
+              - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
           - Sid: EfsPolicies
@@ -98,45 +96,67 @@ Resources:
             Resource: '*'
           - Sid: APIGATEWAY
             Action:
-              - 'apigateway:GetApiKeys'
-              - 'apigateway:GetAuthorizers'
-              - 'apigateway:GetBasePathMappings'
-              - 'apigateway:GetClientCertificates'
-              - 'apigateway:GetDeployments'
-              - 'apigateway:GetDocumentationParts'
-              - 'apigateway:GetDocumentationVersions'
-              - 'apigateway:GetDomainNames'
-              - 'apigateway:GetGatewayResponses'
-              - 'apigateway:GetModels'
-              - 'apigateway:GetModelTemplate'
-              - 'apigateway:GetRequestValidators'
-              - 'apigateway:GetResources'
-              - 'apigateway:GetRestApis'
-              - 'apigateway:GetSdk'
-              - 'apigateway:GetSdkTypes'
-              - 'apigateway:GetStages'
-              - 'apigateway:GetTags'
-              - 'apigateway:GetUsagePlanKeys'
-              - 'apigateway:GetUsagePlans'
-              - 'apigateway:GetVpcLinks'
+              - 'apigateway:GET'
             Effect: Allow
             Resource: '*'
           - Sid: APIGATEWAYV2
             Action:
-              - 'apigatewayv2:GetApis'
-              - 'apigatewayv2:GetApiMappings'
-              - 'apigatewayv2:GetAuthorizers'
-              - 'apigatewayv2:GetDeployments'
-              - 'apigatewayv2:GetDomainNames'
-              - 'apigatewayv2:GetIntegrations'
-              - 'apigatewayv2:GetIntegrationResponses'
-              - 'apigatewayv2:GetModelTemplate'
-              - 'apigatewayv2:GetModels'
-              - 'apigatewayv2:GetRoute'
-              - 'apigatewayv2:GetRouteResponses'
-              - 'apigatewayv2:GetStages'
-              - 'apigatewayv2:GetVpcLinks'
+              - 'apigatewayv2:GET'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SNS
+            Action:
+              - 'sns:GetDataProtectionPolicy'
+              - 'sns:ListPlatformApplications'
+              - 'sns:GetSubscriptionAttributes'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLUE
+            Action:
+              - 'glue:ListWorkflows'
+              - 'glue:BatchGetWorkflows'
+              - 'glue:GetTags'
+              - 'glue:GetTables'
+              - 'glue:GetTable'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLACIER
+            Action:
+              - 'glacier:ListTagsForVault'
+            Effect: Allow
+            Resource: '*'
+          - Sid: CODEBUILD
+            Action:
+              - 'codebuild:ListBuilds'
+              - 'codebuild:BatchGetBuilds'
+            Effect: Allow
+            Resource: '*'
+          - Sid: WAFREGIONAL
+            Action:
+              - 'waf-regional:ListRules'
+              - 'waf-regional:GetRule'
+              - 'waf-regional:ListRuleGroups'
+              - 'waf-regional:GetRuleGroup'
+              - 'waf-regional:ListActivatedRulesInRuleGroup'
+            Effect: Allow
+            Resource: '*'
+          - Sid: NETWORKFIREWALL
+            Effect: Allow
+            Action:
+              - 'network-firewall:DescribeLoggingConfiguration'
+            Resource: '*'
+          - Sid: WAFV2
+            Effect: Allow
+            Action:
+              - 'wafv2:ListWebACLs'
+              - 'wafv2:ListRegexPatternSets'
+              - 'wafv2:ListIPSets'
+            Resource:
+              - '*'
+          - Sid: STATES
+            Action:
+              - 'states:ListTagsForResource'
             Effect: Allow
             Resource: '*'
       Roles:
-        - !Ref LaceworkCrossAccountAccessRole
+        - !Ref LaceworkCWSSACrossAccountAccessRole

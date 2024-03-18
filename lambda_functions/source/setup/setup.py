@@ -44,8 +44,7 @@ if os.environ.get('lacework_integration_name_prefix') is not None:
 else:
     LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
     AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
-    CONFIG_NAME_PREFIX= "Lacework-Control-Tower-Config-Member-"
-    
+    CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
 
 DESCRIPTION = "Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
 "and automated AWS security monitoring."
@@ -102,7 +101,6 @@ def create(event, context):
     existing_cloudtrail = os.environ['existing_cloudtrail']
     management_account_id = context.invoked_function_arn.split(":")[4]
     region_name = context.invoked_function_arn.split(":")[3]
-    external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
     try:
         access_token = setup_initial_access_token(lacework_url, lacework_api_credentials)
@@ -114,14 +112,14 @@ def create(event, context):
                              kms_key_id_arn,
                              log_account_template,
                              audit_account_name,
-                             audit_account_template, access_token, external_id, existing_cloudtrail)
+                             audit_account_template, access_token, existing_cloudtrail)
         if "Config" in capability_type:
             setup_config(lacework_account_name, lacework_sub_account_name,
                          lacework_account_sns,
                          existing_accounts,
                          member_account_template,
                          management_account_id,
-                         region_name, external_id)
+                         region_name)
 
     except Exception as setup_exception:
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
@@ -277,11 +275,12 @@ def delete(event, context):
 def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                      management_account_id, log_account_name,
                      kms_key_id_arn, log_account_template, audit_account_name, audit_account_template, access_token,
-                     external_id, existing_cloudtrail):
+                     existing_cloudtrail):
     logger.info("setup.setup_cloudtrail called.")
 
     log_account_id = get_account_id_by_name(log_account_name)
     lacework_account_name = get_account_from_url(lacework_url)
+    external_id = "lweid:aws:v2:%s:%s:%s" % (lacework_account_name, log_account_id, ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)))
     if log_account_id is None:
         raise error_exception("Log account with name {} was not found.".format(log_account_id),
                               HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
@@ -326,10 +325,9 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                                               audit_account_id)
             logger.info("SQS queue url is {}".format(sqs_queue_url))
             log_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
-            logger.info("Creating log stack {} with ResourceNamePrefix: {} ExternalID: {} "
+            logger.info("Creating log stack {} with ResourceNamePrefix: {} "
                         "ExistingTrailBucketName: {} SqsQueueUrl: {} SqsQueueArn: {}".format(log_account_template,
                                                                                              lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name,
-                                                                                             external_id,
                                                                                              cloudtrail_s3_bucket,
                                                                                              sqs_queue_url,
                                                                                              sqs_queue_arn))
@@ -486,7 +484,7 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                  lacework_account_sns,
                  existing_accounts,
                  member_account_template,
-                 management_account_id, region_name, external_id):
+                 management_account_id, region_name):
     logger.info("setup.setup_config called.")
     cloudformation_client = boto3.client("cloudformation")
     org_client = boto3.client('organizations')
@@ -502,8 +500,7 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             "Stack set {} does not exist, creating it now. {}".format(config_stack_set_name, describe_exception))
         management_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
         logger.info("Using role {} to create stack {}".format(management_role, config_stack_set_name))
-        logger.info("Creating config stack with ResourceNamePrefix: {} ExternalID: {} ".format(account_name,
-                                                                                               external_id))
+        logger.info("Creating config stack with ResourceNamePrefix: {}".format(account_name))
 
         cfn_stack = os.environ['cfn_stack']
         cfn_stack_id = os.environ['cfn_stack_id']
@@ -517,12 +514,6 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                 {
                     "ParameterKey": "ResourceNamePrefix",
                     "ParameterValue": account_name,
-                    "UsePreviousValue": False,
-                    "ResolvedValue": "string"
-                },
-                {
-                    "ParameterKey": "ExternalID",
-                    "ParameterValue": external_id,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }
@@ -553,7 +544,7 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                 page_iterator = paginator.paginate(StackSetName=ct_cloudtrail_stack)
                 for page in page_iterator:
                     for inst in page['Summaries']:
-                        #logger.info("DEBUG Stack Set inst Details {}".format(inst))
+                        # logger.info("DEBUG Stack Set inst Details {}".format(inst))
                         account_set.add(inst['Account'])
                 account_list = list(account_set)
                 account_dict = {}
@@ -565,7 +556,8 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                 if len(account_list) > 0:
                     send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
                                          "add {} existing".format(len(account_list)), lacework_sub_account_name)
-                    send_to_account_function(account_list, account_dict, [region_name], config_stack_set_name, lacework_account_sns)
+                    send_to_account_function(account_list, account_dict, [region_name], config_stack_set_name,
+                                             lacework_account_sns)
             except Exception as create_exception:
                 raise error_exception("Exception creating stack instances with {}".format(create_exception),
                                       HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
@@ -586,7 +578,7 @@ def get_aws_account_name(account_id, org_client):
         logger.info("Account name for id {} is {}".format(account_id, response['Account']['Name']))
         return response['Account']['Name']
     except Exception as e:
-        logger.error(f"Error getting account name for {account_id}: {e}")
+        logger.warning(f"Error getting account name for {account_id}: {e}")
         return None
 
 
@@ -635,7 +627,8 @@ def send_to_account_function(account_list, account_dict, region_list, config_sta
     logger.info("setup.send_to_account_function accounts: {}".format(account_list))
     sns_client = boto3.client("sns")
     message_body = {
-        config_stack_set_name: {"target_accounts": account_list, "target_regions": region_list, "target_accounts_dict": account_dict}}
+        config_stack_set_name: {"target_accounts": account_list, "target_regions": region_list,
+                                "target_accounts_dict": account_dict}}
     try:
         sns_response = sns_client.publish(
             TopicArn=lacework_account_sns,

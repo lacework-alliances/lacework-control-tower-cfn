@@ -57,11 +57,7 @@ Resources:
           - Action: 'sts:AssumeRole'
             Effect: Allow
             Principal:
-              AWS: !Join
-                - ''
-                - - 'arn:aws:iam::'
-                  - '434813966438'
-                  - ':root'
+              AWS: 'arn:aws:iam::434813966438:role/lacework-platform'
             Condition:
               StringEquals:
                 'sts:ExternalId': !Ref ExternalID
@@ -104,19 +100,111 @@ Resources:
           - Sid: Debug
             Action:
               - 'cloudtrail:DescribeTrails'
-              - 'cloudtrail:GetTrailTopics'
               - 'cloudtrail:GetTrailStatus'
-              - 'cloudtrail:ListPublicKeys'
-              - 's3:GetBucketAcl'
+              - 'eks:ListTagsForResource'
               - 's3:GetBucketPolicy'
-              - 's3:ListAllMyBuckets'
               - 's3:GetBucketLocation'
-              - 's3:GetBucketLogging'
-              - 'sns:GetSubscriptionAttributes'
               - 'sns:GetTopicAttributes'
               - 'sns:ListSubscriptions'
-              - 'sns:ListSubscriptionsByTopic'
               - 'sns:ListTopics'
+            Effect: Allow
+            Resource: '*'
+          - Sid: EfsPolicies
+            Action:
+              - 'elasticfilesystem:DescribeFileSystemPolicy'
+              - 'elasticfilesystem:DescribeLifecycleConfiguration'
+              - 'elasticfilesystem:DescribeAccessPoints'
+              - 'elasticfilesystem:DescribeAccountPreferences'
+              - 'elasticfilesystem:DescribeBackupPolicy'
+              - 'elasticfilesystem:DescribeReplicationConfigurations'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SagemakerPolicies
+            Action:
+              - 'sagemaker:GetLineageGroupPolicy'
+              - 'sagemaker:GetModelPackageGroupPolicy'
+            Effect: Allow
+            Resource: '*'
+          - Sid: IdentityStoreReadOnly
+            Action:
+              - 'identitystore:DescribeGroup'
+              - 'identitystore:DescribeGroupMembership'
+              - 'identitystore:DescribeUser'
+              - 'identitystore:ListGroupMemberships'
+              - 'identitystore:ListGroupMembershipsForMember'
+              - 'identitystore:ListGroups'
+              - 'identitystore:ListUsers'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SSOReadOnly
+            Action:
+              - 'sso:DescribeAccountAssignmentDeletionStatus'
+              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
+              - 'sso:GetInlinePolicyForPermissionSet'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAY
+            Action:
+              - 'apigateway:GET'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAYV2
+            Action:
+              - 'apigatewayv2:GET'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SNS
+            Action:
+              - 'sns:GetDataProtectionPolicy'
+              - 'sns:ListPlatformApplications'
+              - 'sns:GetSubscriptionAttributes'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLUE
+            Action:
+              - 'glue:ListWorkflows'
+              - 'glue:BatchGetWorkflows'
+              - 'glue:GetTags'
+              - 'glue:GetTables'
+              - 'glue:GetTable'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLACIER
+            Action:
+              - 'glacier:ListTagsForVault'
+            Effect: Allow
+            Resource: '*'
+          - Sid: CODEBUILD
+            Action:
+              - 'codebuild:ListBuilds'
+              - 'codebuild:BatchGetBuilds'
+            Effect: Allow
+            Resource: '*'
+          - Sid: WAFREGIONAL
+            Action:
+              - 'waf-regional:ListRules'
+              - 'waf-regional:GetRule'
+              - 'waf-regional:ListRuleGroups'
+              - 'waf-regional:GetRuleGroup'
+              - 'waf-regional:ListActivatedRulesInRuleGroup'
+            Effect: Allow
+            Resource: '*'
+          - Sid: NETWORKFIREWALL
+            Effect: Allow
+            Action:
+              - 'network-firewall:DescribeLoggingConfiguration'
+            Resource: '*'
+          - Sid: WAFV2
+            Effect: Allow
+            Action:
+              - 'wafv2:ListWebACLs'
+              - 'wafv2:ListRegexPatternSets'
+              - 'wafv2:ListIPSets'
+            Resource:
+              - '*'
+          - Sid: STATES
+            Action:
+              - 'states:ListTagsForResource'
             Effect: Allow
             Resource: '*'
       Roles:
@@ -144,9 +232,6 @@ Outputs:
     Value: !GetAtt
       - LaceworkCWSSACrossAccountAccessRole
       - Arn
-  ExternalID:
-    Description: ExternalID to share with Lacework for CloudTrail integration
-    Value: !Ref ExternalID
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
     Value: !Ref SqsQueueUrl
