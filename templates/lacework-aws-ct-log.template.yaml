@@ -117,6 +117,7 @@ Resources:
               - 'elasticfilesystem:DescribeAccountPreferences'
               - 'elasticfilesystem:DescribeBackupPolicy'
               - 'elasticfilesystem:DescribeReplicationConfigurations'
+              - 'elasticfilesystem:ListTagsForResource'
             Effect: Allow
             Resource: '*'
           - Sid: SagemakerPolicies
