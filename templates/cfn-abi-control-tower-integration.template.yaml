@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.3.1 Supports CT LZ 3.0 and AWS Built-in"
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.3.2 Supports CT LZ 3.0 and AWS Built-in"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:

@@ -38,7 +38,7 @@ DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
 if os.environ.get('lacework_integration_name_prefix') is not None:
-    CONFIG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix'))
+    CONFIG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix'))+"Config-Member-"
     LOG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix')) + "CloudTrail-Log-Account-"
     AUDIT_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix')) + "CloudTrail-Audit-Account-"
 else:
@@ -492,7 +492,6 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
                                 (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
-        account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
         cloudformation_client.describe_stack_set(StackSetName=config_stack_set_name)
         logger.info("Stack set {} already exist".format(config_stack_set_name))
     except Exception as describe_exception:
@@ -500,11 +499,12 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             "Stack set {} does not exist, creating it now. {}".format(config_stack_set_name, describe_exception))
         management_role = "arn:aws:iam::" + management_account_id + ":role/service-role/AWSControlTowerStackSetRole"
         logger.info("Using role {} to create stack {}".format(management_role, config_stack_set_name))
-        logger.info("Creating config stack with ResourceNamePrefix: {}".format(account_name))
-
+        logger.info("Creating config stack with ResourceNamePrefix: {}".format(lacework_account_name))
+        resource_name_prefix = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
         cfn_stack = os.environ['cfn_stack']
         cfn_stack_id = os.environ['cfn_stack_id']
         cfn_tags = get_stack_tags(cfn_stack, cfn_stack_id)
+        external_suffix = os.environ['external_suffix']
         cloudformation_client.create_stack_set(
             StackSetName=config_stack_set_name,
             Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
@@ -513,7 +513,19 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             Parameters=[
                 {
                     "ParameterKey": "ResourceNamePrefix",
-                    "ParameterValue": account_name,
+                    "ParameterValue": resource_name_prefix,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "LaceworkAccountName",
+                    "ParameterValue": lacework_account_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExternalSuffix",
+                    "ParameterValue": external_suffix,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }

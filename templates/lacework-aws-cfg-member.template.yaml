@@ -13,6 +13,18 @@ Parameters:
     ConstraintDescription: >-
       Invalid resource name prefix.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
+  LaceworkAccountName:
+    Default: customerdemo
+    Description: >-
+      Names of resources created by the stack will be prefixed with this value
+      to ensure uniqueness.
+    Type: String
+    MinLength: '1'
+    MaxLength: '45'
+    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    ConstraintDescription: >-
+      Invalid resource name prefix.  Must match pattern
+      ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
   ExternalSuffix:
     Default: ExternalSuffix
     Type: String
@@ -33,7 +45,7 @@ Resources:
               AWS: 'arn:aws:iam::434813966438:role/lacework-platform'
             Condition:
               StringEquals:
-                'sts:ExternalId': !Join [':',[!Sub "lweid:aws:v2:${ResourceNamePrefix}:${AWS::AccountId}", !Ref ExternalSuffix]]
+                'sts:ExternalId': !Join [':',[!Sub "lweid:aws:v2:${LaceworkAccountName}:${AWS::AccountId}", !Ref ExternalSuffix]]
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.3.1 Supports CT LZ 3.0 and AWS Built-in. Updated Mar 16, 2024."
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.3.2 Supports CT LZ 3.0 and AWS Built-in. Updated Apr 16, 2024."
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
@@ -86,7 +86,7 @@ Parameters:
     ConstraintDescription: "Invalid list entered. The sub-account name may contain alphanumeric characters and dashes only."
   LaceworkSubAccountName:
     Type: String
-    Description: "Use for a single sub-account use only. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Sub-Account."
+    Description: "Use for a single sub-account use only. Leave blank otherwise. If used, ensure that the Lacework API credentials are for the Sub-Account."
     AllowedPattern: '^$|^[a-zA-Z0-9.]+(?:-[a-zA-Z0-9.]+)*$'
     ConstraintDescription: "Invalid Lacework account name entered. The account name may contain alphanumeric characters and dashes only."
   LaceworkAccessKeyID:
@@ -146,7 +146,7 @@ Parameters:
 # advanced
   IntegrationNamePrefix:
     Type: String
-    Default: Lacework-Control-Tower-Config-Member-
+    Default: Lacework-Control-Tower-
     AllowedPattern: '^[-a-zA-Z0-9\s]*$'
     MinLength: '1'
     Description: "Enter the prefix for the integration name in Lacework. Use this if you want to customize your deployment."
@@ -188,8 +188,8 @@ Resources:
       Prefix: !Ref 'S3KeyPrefix'
       Objects:
         - '/lambda/LaceworkCTAuth3.3.0.zip'
-        - '/lambda/LaceworkCTSetup3.3.0.zip'
-        - '/lambda/LaceworkCTAccount3.3.0.zip'
+        - '/lambda/LaceworkCTSetup3.3.2.zip'
+        - '/lambda/LaceworkCTAccount3.3.2.zip'
 
   CopyZipsRole:
     Type: AWS::IAM::Role
@@ -290,7 +290,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.3.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.3.2.zip']]
       Handler: setup.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -313,6 +313,7 @@ Resources:
           member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
           cfn_stack: !Ref AWS::StackName
           cfn_stack_id: !Ref AWS::StackId
+          external_suffix: !Join ['',['lw',!Select [ 0, !Split [ '-', !Select [ 2, !Split [ '/', !Ref AWS::StackId ] ] ] ] ] ]
       Role: !GetAtt LaceworkSetupFunctionRole.Arn
 
   LaceworkSetupFunctionRole:
@@ -520,7 +521,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.3.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.3.2.zip']]
       Handler: account.lambda_handler
       Runtime: python3.9
       Timeout: 900
@@ -532,6 +533,7 @@ Resources:
           lacework_account_sns: !Ref LaceworkAccountSNS
           lacework_api_credentials: !Ref LaceworkApiCredentials
           lacework_integration_name_prefix: !Ref IntegrationNamePrefix
+          external_suffix: !Join ['',['lw',!Select [ 0, !Split [ '-', !Select [ 2, !Split [ '/', !Ref AWS::StackId ] ] ] ] ] ]
       Role: !GetAtt LaceworkAccountFunctionRole.Arn
 
   LaceworkAuthFunctionRole:

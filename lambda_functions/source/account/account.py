@@ -35,7 +35,10 @@ HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
-CONFIG_NAME_PREFIX = os.environ.get('lacework_integration_name_prefix', 'Lacework-Control-Tower-Config-Member-')
+if os.environ.get('lacework_integration_name_prefix') is not None:
+    CONFIG_NAME_PREFIX = str(os.environ.get('lacework_integration_name_prefix'))+"Config-Member-"
+else:
+    CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
 
 LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
 logger = logging.getLogger()
@@ -112,7 +115,6 @@ def cfn_stack_set_processing(messages):
     lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
     access_token = get_access_token(lacework_api_credentials)
-    external_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
     if access_token is None:
         logger.error("Unable to get Lacework access token. Failed to create stack instances.")
@@ -168,16 +170,10 @@ def cfn_stack_set_processing(messages):
                     acct_id = acct['id']
                     if not stack_set_instance_exists(config_stack_set_name, acct_id):
                         create_stack_instance_list.append(acct_id)
+
                 if len(create_stack_instance_list) > 0:
                     response = create_stack_set_instances(config_stack_set_name, create_stack_instance_list,
-                                                          param_regions, [
-                                                              {
-                                                                  "ParameterKey": "ExternalSuffix",
-                                                                  "ParameterValue": external_suffix,
-                                                                  "UsePreviousValue": False,
-                                                                  "ResolvedValue": "string"
-                                                              }
-                                                          ])
+                                                          param_regions, [])
 
                     wait_for_stack_set_operation(config_stack_set_name, response['OperationId'])
                     logger.info("Stack_set instance created {}".format(response))
@@ -185,25 +181,25 @@ def cfn_stack_set_processing(messages):
 
                 for acct in valid_account_list:
                     acct_id = acct['id']
-                    acct_name = acct['name']
                     org_name = get_org_for_account(acct_id, lacework_org_sub_account_names)
                     account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
                     sub_account_name = account_name if not org_name else org_name
                     role_arn = get_cross_account_access_role(lacework_account_name, account_name, acct_id)
+                    external_suffix = os.environ['external_suffix']
                     external_id = "lweid:aws:v2:%s:%s:%s" % (lacework_account_name, acct_id, external_suffix)
                     if lacework_org_sub_account_names:
-                        if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, access_token,
+                        if lw_cloud_account_exists_in_orgs(CONFIG_NAME_PREFIX + acct_id, lacework_url, access_token,
                                                            lacework_org_sub_account_names):
-                            update_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
+                            update_lw_cloud_account_in_orgs(CONFIG_NAME_PREFIX + acct_id, lacework_url, sub_account_name,
                                                             access_token,
                                                             lacework_org_sub_account_names, role_arn, acct_id)
                         else:
-                            add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
+                            add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_id, lacework_url, sub_account_name,
                                                          access_token,
                                                          external_id,
                                                          role_arn, acct_id)
                     else:
-                        add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_name, lacework_url, sub_account_name,
+                        add_lw_cloud_account_for_cfg(CONFIG_NAME_PREFIX + acct_id, lacework_url, sub_account_name,
                                                      access_token,
                                                      external_id,
                                                      role_arn, acct_id)
