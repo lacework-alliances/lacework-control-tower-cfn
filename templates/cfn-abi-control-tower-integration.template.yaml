@@ -164,11 +164,11 @@ Parameters:
     Description: "Enter the Cloudformation template for a member account. Expected to be in a templates/ directory."
   AdministrationRoleARN:
     Default: 'AWSControlTowerStackSetRole'
-    Description: IAM role ARN in the Management account, used to deploy stacks in other account/regions. Use 'arn:aws:iam::AWS-MANAGEMENT-ACCOUNT-ID:role/service-role/AWSControlTowerStackSetRole' for Control Tower environments or 'arn:aws:iam::AWS-ACCOUNT-ID:role/AWSCloudFormationStackSetAdministrationRole' for non-Control Tower environments.
+    Description: IAM role ARN in the Management account, used to deploy stacks in other account/regions. Use 'AWSControlTowerStackSetRole' for Control Tower environments or 'AWSCloudFormationStackSetAdministrationRole' for non-Control Tower environments (use https://s3.amazonaws.com/cloudformation-stackset-sample-templates-us-east-1/AWSCloudFormationStackSetAdministrationRole.yml to create the role in your Administrator account if you don't have it created already). 
     Type: String
   ExecutionRoleName:
-    Default: 'AWSControlTowerStackSetRole'
-    Description: IAM role name in the AWS accounts in the Organizations that allows trusted access to AdministrationRoleARN in the Management Account. Use 'AWSControlTowerExecution' for Control Tower environments or 'AWSCloudFormationStackSetExecutionRole' for non-Control Tower environments.
+    Default: 'AWSControlTowerExecution'
+    Description: IAM role name in the AWS accounts in the Organizations that allows trusted access to AdministrationRoleARN in the Management Account. Use 'AWSControlTowerExecution' for Control Tower environments or 'AWSCloudFormationStackSetExecutionRole' for non-Control Tower environments (use https://s3.amazonaws.com/cloudformation-stackset-sample-templates-us-east-1/AWSCloudFormationStackSetExecutionRole.yml to create the role in each target accounts on your AWS Organizations if you don't have it already).
     Type: String
 Resources:
   LaceworkSetupFunction:
