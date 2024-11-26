@@ -37,6 +37,7 @@ HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
+
 LOG_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Log-Account-"
 AUDIT_NAME_PREFIX = "Lacework-Control-Tower-CloudTrail-Audit-Account-"
 CONFIG_NAME_PREFIX = "Lacework-Control-Tower-Config-Member-"
@@ -96,7 +97,6 @@ def create(event, context):
     existing_cloudtrail = os.environ['existing_cloudtrail']
     management_account_id = context.invoked_function_arn.split(":")[4]
     region_name = context.invoked_function_arn.split(":")[3]
-    external_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
     try:
         access_token = setup_initial_access_token(lacework_url, lacework_api_credentials)
@@ -108,14 +108,14 @@ def create(event, context):
                              kms_key_id_arn,
                              log_account_template,
                              audit_account_name,
-                             audit_account_template, access_token, external_id, existing_cloudtrail)
+                             audit_account_template, access_token, existing_cloudtrail)
         if "Config" in capability_type:
             setup_config(lacework_account_name, lacework_sub_account_name,
                          lacework_account_sns,
                          existing_accounts,
                          member_account_template,
                          management_account_id,
-                         region_name, external_id)
+                         region_name)
 
     except Exception as setup_exception:
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
@@ -271,11 +271,12 @@ def delete(event, context):
 def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                      management_account_id, log_account_name,
                      kms_key_id_arn, log_account_template, audit_account_name, audit_account_template, access_token,
-                     external_id, existing_cloudtrail):
+                     existing_cloudtrail):
     logger.info("setup.setup_cloudtrail called.")
 
     log_account_id = get_account_id_by_name(log_account_name)
     lacework_account_name = get_account_from_url(lacework_url)
+    external_id = "lweid:aws:v2:%s:%s:%s" % (lacework_account_name, log_account_id, ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)))
     if log_account_id is None:
         raise error_exception("Log account with name {} was not found.".format(log_account_id),
                               HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
@@ -323,7 +324,6 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             logger.info("Creating log stack {} with ResourceNamePrefix: {} ExternalID: {} "
                         "ExistingTrailBucketName: {} SqsQueueUrl: {} SqsQueueArn: {}".format(log_account_template,
                                                                                              lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name,
-                                                                                             external_id,
                                                                                              cloudtrail_s3_bucket,
                                                                                              sqs_queue_url,
                                                                                              sqs_queue_arn))
@@ -480,13 +480,12 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                  lacework_account_sns,
                  existing_accounts,
                  member_account_template,
-                 management_account_id, region_name, external_id):
+                 management_account_id, region_name):
     logger.info("setup.setup_config called.")
     cloudformation_client = boto3.client("cloudformation")
     try:
         config_stack_set_name = CONFIG_NAME_PREFIX + \
                                 (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
-        account_name = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
         cloudformation_client.describe_stack_set(StackSetName=config_stack_set_name)
         logger.info("Stack set {} already exist".format(config_stack_set_name))
     except Exception as describe_exception:
@@ -494,12 +493,12 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             "Stack set {} does not exist, creating it now. {}".format(config_stack_set_name, describe_exception))
         management_role = os.environ['administration_role_arn']
         logger.info("Using role {} to create stack {}".format(management_role, config_stack_set_name))
-        logger.info("Creating config stack with ResourceNamePrefix: {} ExternalID: {} ".format(account_name,
-                                                                                               external_id))
-
+        logger.info("Creating config stack with ResourceNamePrefix: {}".format(lacework_account_name))
+        resource_name_prefix = lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name
         cfn_stack = os.environ['cfn_stack']
         cfn_stack_id = os.environ['cfn_stack_id']
         cfn_tags = get_stack_tags(cfn_stack, cfn_stack_id)
+        external_suffix = os.environ['external_suffix']
         cloudformation_client.create_stack_set(
             StackSetName=config_stack_set_name,
             Description="Lacework's cloud-native threat detection, compliance, behavioral anomaly detection, "
@@ -508,13 +507,19 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             Parameters=[
                 {
                     "ParameterKey": "ResourceNamePrefix",
-                    "ParameterValue": account_name,
+                    "ParameterValue": resource_name_prefix,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 },
                 {
-                    "ParameterKey": "ExternalID",
-                    "ParameterValue": external_id,
+                    "ParameterKey": "LaceworkAccountName",
+                    "ParameterValue": lacework_account_name,
+                    "UsePreviousValue": False,
+                    "ResolvedValue": "string"
+                },
+                {
+                    "ParameterKey": "ExternalSuffix",
+                    "ParameterValue": external_suffix,
                     "UsePreviousValue": False,
                     "ResolvedValue": "string"
                 }
@@ -545,6 +550,7 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                 page_iterator = paginator.paginate(StackSetName=ct_cloudtrail_stack)
                 for page in page_iterator:
                     for inst in page['Summaries']:
+                        # logger.info("DEBUG Stack Set inst Details {}".format(inst))
                         account_set.add(inst['Account'])
                 account_list = list(account_set)
                 if len(account_list) > 0:
@@ -561,6 +567,19 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
 
 def get_account_from_url(lacework_url):
     return lacework_url.split('.')[0]
+
+
+
+def get_aws_account_name(account_id, org_client):
+    logger.info("setup.get_aws_account_name called.")
+    try:
+        logger.info("Getting account Name for account id {}".format(account_id))
+        response = org_client.describe_account(AccountId=account_id)
+        logger.info("Account name for id {} is {}".format(account_id, response['Account']['Name']))
+        return response['Account']['Name']
+    except Exception as e:
+        logger.warning(f"Error getting account name for {account_id}: {e}")
+        return None
 
 
 def get_sqs_queue_arn(lacework_account_name, lacework_sub_account_name, region_name, audit_account_id):

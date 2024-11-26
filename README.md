@@ -183,7 +183,7 @@ Currently, this is not possible due to AWS Control Tower limitations. When enrol
 With AWS Control Tower, a centralized AWS CloudTrail trail is used. All cloud user and API activity are logged to this single trail. Lacework will monitor all cloud activity from this trail.
 
 ## Reference Documentation
-- [Support docs on docs.lacework.com](https://docs.lacework.com/aws-config-and-cloudtrail-integration-with-aws-control-tower-using-cloudformation#troubleshooting)
+- [Support docs on docs.lacework.net](https://docs.lacework.net/onboarding/aws-config-and-cloudtrail-integration-with-aws-control-tower-using-cloudformation#troubleshooting)
 - [Implementation Guide on AWS](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Implementation-Guide-Lacework-Multi-Account-Security.pdf)
 - [Datasheet](https://d1.awsstatic.com/Marketplace/solutions-center/downloads/AWSMP-CT-Datasheet-Lacework-Multi-Account-SEC.pdf)
 - [AWS Control Tower Getting Started](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html)

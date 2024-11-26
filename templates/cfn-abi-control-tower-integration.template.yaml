@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.1.0 Supports CT LZ 3.0 and AWS Built-in"
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v3.3.2 Supports CT LZ 3.0 and AWS Built-in"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
           default: "Basic Configuration"
         Parameters:
-          - LaceworkURL
+          - LaceworkAccountName
           - LaceworkAccessKeyID
           - LaceworkSecretKey
           - CapabilityType
@@ -32,8 +32,8 @@ Metadata:
           - CTAuditAccountTemplate
           - CFGMemberAccountTemplate
     ParameterLabels:
-      LaceworkURL:
-        default: Your Lacework URL
+      LaceworkAccountName:
+        default: Lacework Account Name
       LaceworkOrgSubAccountNames:
         default: AWS Organizations to Lacework Sub-Account Names
       LaceworkSubAccountName:
@@ -66,12 +66,16 @@ Metadata:
         default: Member Account Cloudformation Template
 Parameters:
   # basic
-  LaceworkURL:
+  LaceworkAccountName:
+    Description: >-
+      The Lacework account name. (do not include the .lacework.net suffix)
     Type: String
-    Description: "Enter your Lacework URL. ie. account.lacework.net."
     MinLength: '1'
-    AllowedPattern: '(.+?)\.lacework\.net'
-    ConstraintDescription: "Invalid Lacework URL."
+    MaxLength: '45'
+    AllowedPattern: '^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$'
+    ConstraintDescription: >-
+      Invalid Lacework account name value.  Must match pattern
+      ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
   LaceworkOrgSubAccountNames:
     Type: String
     Description: "Use for AWS organizations to Lacework sub-accounts mapping. Provide a commas-separated list. Leave blank otherwise. If used, ensure that the Lacework credentials are for the Organization Admin."
@@ -183,7 +187,7 @@ Resources:
       Timeout: 900
       Environment:
         Variables:
-          lacework_url: !Ref LaceworkURL
+          lacework_url: !Sub "${LaceworkAccountName}.lacework.net"
           lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_api_credentials: !Ref LaceworkApiCredentials
@@ -409,13 +413,13 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.2.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/account/LaceworkCTAccount3.3.0.zip']]
       Handler: account.lambda_handler
       Runtime: python3.9
       Timeout: 900
       Environment:
         Variables:
-          lacework_url: !Ref LaceworkURL
+          lacework_url: !Sub "${LaceworkAccountName}.lacework.net"
           lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_org_sub_account_names: !Ref LaceworkOrgSubAccountNames
           lacework_account_sns: !Ref LaceworkAccountSNS
@@ -454,13 +458,13 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref S3BucketName
-        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth3.2.0.zip']]
+        S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/submodules/lacework-control-tower-cfn/lambda_functions/packages/auth/LaceworkCTAuth3.3.0.zip']]
       Handler: auth.lambda_handler
       Runtime: python3.9
       Timeout: 120
       Environment:
         Variables:
-          lacework_url: !Ref LaceworkURL
+          lacework_url: !Sub "${LaceworkAccountName}.lacework.net"
           lacework_sub_account_name: !Ref LaceworkSubAccountName
           lacework_api_credentials: !Ref LaceworkApiCredentials
       Role: !GetAtt LaceworkAuthFunctionRole.Arn

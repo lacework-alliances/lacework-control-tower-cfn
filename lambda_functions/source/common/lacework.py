@@ -153,7 +153,7 @@ def add_lw_cloud_account_for_ct(integration_name, lacework_url, sub_account, acc
         }}
     }}
     '''.format(integration_name, external_id, role_arn, sqs_queue_url)
-    logger.info('Generate create account payload : {}'.format(request_payload))
+    logger.info('Generate create account {} payload : {}'.format(sub_account, request_payload))
 
     add_response = send_lacework_api_post_request(lacework_url, "api/v2/CloudAccounts", access_token,
                                                   request_payload, sub_account)
