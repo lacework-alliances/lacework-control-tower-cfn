@@ -165,6 +165,7 @@ Resources:
             Action:
               - 'glue:ListWorkflows'
               - 'glue:BatchGetWorkflows'
+              - 'glue:GetWorkflows'
               - 'glue:GetTags'
               - 'glue:GetTables'
               - 'glue:GetTable'
