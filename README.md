@@ -1,6 +1,6 @@
 # Lacework AWS Control Tower Customization
 
-![Lacework](https://user-images.githubusercontent.com/6440106/152378397-90c862e9-19fb-4427-96d0-02ca6c87f4dd.png)
+![Fortinet-logo-rgb-black-red](https://github.com/user-attachments/assets/cafe1dad-4968-4385-a9c1-f1636b8ab697)
 
 ## Overview
 With Lacework and AWS Control Tower, enrolling a new AWS account now means security best practices and monitoring are automatically applied consistently across your organization. Account administrators can automatically add Lacework's security auditing and monitoring to AWS accounts seamlessly. All the required Lacework and AWS account configurations that allow access to AWS configuration and CloudTrail logs are managed for you by Lacework’s AWS Control Tower integration.
@@ -10,7 +10,8 @@ The Lacework AWS Control Tower integration audits and monitors AWS accounts in y
 
 For new AWS accounts in your organization, [AWS Control Tower Account Factory](https://aws.amazon.com/controltower/features/#Account_Factory) enables easy onboarding of new and existing AWS accounts which triggers the Lacework integration through a new account lifecycle event. A Lambda function launches a stack instance that creates a new cross-account role and allows Lacework to monitor the account via AWS APIs. The combination of CloudTrail log analysis and AWS API access allows Lacework to check your cloud activity and AWS configuration to detect security misconfigurations and anomalous behavior.
 
-![control_tower_architecture-8f93f8a8217035f89e7651e648608055](https://user-images.githubusercontent.com/6440106/154098553-5a2b4dd9-dcc8-4cd0-a610-33ef8d80eba0.png)
+![LW-CT](https://github.com/user-attachments/assets/e2a84bf5-d197-4c76-af0c-747666792616)
+
 
 ### Setup Flow
 
