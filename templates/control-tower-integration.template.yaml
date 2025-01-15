@@ -307,10 +307,10 @@ Resources:
           existing_cloudtrail: !Ref ExistingCloudTrail
           log_account_name: !Ref LogAccountName
           kms_key_id_arn: !Ref KMSKeyIdentifierARN
-          log_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
+          log_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
           audit_account_name: !Ref AuditAccountName
-          audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
-          member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
+          audit_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
+          member_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
           cfn_stack: !Ref AWS::StackName
           cfn_stack_id: !Ref AWS::StackId
           external_suffix: !Join ['',['lw',!Select [ 0, !Split [ '-', !Select [ 2, !Split [ '/', !Ref AWS::StackId ] ] ] ] ] ]
