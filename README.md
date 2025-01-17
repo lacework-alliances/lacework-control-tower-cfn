@@ -10,7 +10,8 @@ The Lacework AWS Control Tower integration audits and monitors AWS accounts in y
 
 For new AWS accounts in your organization, [AWS Control Tower Account Factory](https://aws.amazon.com/controltower/features/#Account_Factory) enables easy onboarding of new and existing AWS accounts which triggers the Lacework integration through a new account lifecycle event. A Lambda function launches a stack instance that creates a new cross-account role and allows Lacework to monitor the account via AWS APIs. The combination of CloudTrail log analysis and AWS API access allows Lacework to check your cloud activity and AWS configuration to detect security misconfigurations and anomalous behavior.
 
-![LW-CT](https://github.com/user-attachments/assets/e2a84bf5-d197-4c76-af0c-747666792616)
+![Control-Tower-Architecture](https://github.com/user-attachments/assets/435a5989-e001-4e3a-a9fd-8af4f0582292)
+
 
 
 ### Setup Flow
