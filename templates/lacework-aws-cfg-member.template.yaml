@@ -185,7 +185,7 @@ Resources:
             Action:
               - 'kinesisvideo:GetSignalingChannelEndpoint'
               - 'kinesisvideo:GetDataEndpoint'
-              -  'kinesisvideo:DescribeImageGenerationConfiguration'
+              - 'kinesisvideo:DescribeImageGenerationConfiguration'
             Effect: Allow
             Resource: '*'
           - Sid: AMP

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Lacework AWS CloudTrail and Config Security Audit Integration (Log Account)
+Description: Lacework AWS CloudTrail and Config Security Audit Integration (Audit Account)
 Parameters:
   ResourceNamePrefix:
     Description: >-
@@ -13,472 +13,58 @@ Parameters:
     ConstraintDescription: >-
       Invalid resource name prefix value.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
-  ExternalID:
-    Default: 4CEBE3B
-    Description: >-
-      The cross-account access role created by the stack will use this value for
-      its ExternalID.
-    Type: String
-    MinLength: '2'
-    MaxLength: '1224'
-  ExistingTrailBucketName:
-    Description: >-
-      Provide the name of the S3 bucket for your existing trail setup.  The
-      bucket must be owned by the current account.
+  ExistingTrailTopicArn:
+    Description: Provide the ARN of the SNS topic for your existing trail setup.
     Default: ''
     Type: String
-    MaxLength: '128'
-  KMSKeyIdentifierArn:
-    Description: Provide the ARN of the KMS key for decrypting S3 log files if necessary.
+  CrossAccountAccessRoleArn:
+    Description: The cross account role to use for access. Typically, this is the Log account cross account role.
     Default: ''
     Type: String
-  SqsQueueUrl:
-    Type: String
-    Description: The SQS Queue URL.
-    AllowedPattern: '^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?'
-    ConstraintDescription: Contains a URL/URI pattern only, ie. https://sqs.<region>.amazonaws.com/<account>/<name>
-    Default: "https://sqs.<region>.amazonaws.com/<account>/<name>"
-  SqsQueueArn:
-    Type: String
-    Description: The SQS Queue Arn.
-Conditions:
-  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
 Resources:
-  LaceworkCWSSACrossAccountAccessRole:
-    Type: 'AWS::IAM::Role'
+  LaceworkCWSSubscription:
+    Type: 'AWS::SNS::Subscription'
     Properties:
-      RoleName: !Join
-        - ''
-        - - !Ref ResourceNamePrefix
-          - '-laceworkcwssarole'
-      AssumeRolePolicyDocument:
+      Endpoint: !GetAtt
+        - LaceworkCWSQueue
+        - Arn
+      Protocol: sqs
+      TopicArn: !Ref ExistingTrailTopicArn
+  LaceworkCWSQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Join ['',[!Ref ResourceNamePrefix, "-laceworkcws" ]]
+  LaceworkCWSQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Action: 'sts:AssumeRole'
+          - Sid: AwsSnsAccess
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - 'sqs:SendMessage'
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                'aws:SourceArn': !Ref ExistingTrailTopicArn
+          - Sid: CrossAccountSqsAccess
             Effect: Allow
             Principal:
-              AWS: 'arn:aws:iam::434813966438:role/lacework-platform'
-            Condition:
-              StringEquals:
-                'sts:ExternalId': !Ref ExternalID
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/SecurityAudit'
-  LaceworkCWSPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: LaceworkCWSPolicy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: ConsumeNotifications
+              AWS: !Ref CrossAccountAccessRoleArn
             Action:
-              - 'sqs:GetQueueAttributes'
-              - 'sqs:GetQueueUrl'
               - 'sqs:DeleteMessage'
               - 'sqs:ReceiveMessage'
-            Effect: Allow
-            Resource: !Ref SqsQueueArn
-          - Sid: ListLogFiles
-            Action:
-              - 's3:ListBucket'
-            Effect: Allow
-            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
-            Condition:
-              StringLike:
-                's3:prefix':
-                  - '*AWSLogs/'
-          - Sid: ReadLogFiles
-            Action:
-              - 's3:Get*'
-            Effect: Allow
-            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
-          - Sid: GetAccountAlias
-            Action:
-              - 'iam:ListAccountAliases'
-            Effect: Allow
-            Resource: '*'
-          - Sid: Debug
-            Action:
-              - 'cloudtrail:DescribeTrails'
-              - 'cloudtrail:GetTrailStatus'
-              - 'eks:ListTagsForResource'
-              - 's3:GetBucketPolicy'
-              - 's3:GetBucketLocation'
-              - 'sns:GetTopicAttributes'
-              - 'sns:ListSubscriptions'
-              - 'sns:ListTopics'
-            Effect: Allow
-            Resource: '*'
-          - Sid: EfsPolicies
-            Action:
-              - 'elasticfilesystem:DescribeFileSystemPolicy'
-              - 'elasticfilesystem:DescribeLifecycleConfiguration'
-              - 'elasticfilesystem:DescribeAccessPoints'
-              - 'elasticfilesystem:DescribeAccountPreferences'
-              - 'elasticfilesystem:DescribeBackupPolicy'
-              - 'elasticfilesystem:DescribeReplicationConfigurations'
-              - 'elasticfilesystem:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SagemakerPolicies
-            Action:
-              - 'sagemaker:GetLineageGroupPolicy'
-              - 'sagemaker:GetModelPackageGroupPolicy'
-            Effect: Allow
-            Resource: '*'
-          - Sid: IdentityStoreReadOnly
-            Action:
-              - 'identitystore:DescribeGroup'
-              - 'identitystore:DescribeGroupMembership'
-              - 'identitystore:DescribeUser'
-              - 'identitystore:ListGroupMemberships'
-              - 'identitystore:ListGroupMembershipsForMember'
-              - 'identitystore:ListGroups'
-              - 'identitystore:ListUsers'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SSOReadOnly
-            Action:
-              - 'sso:DescribeAccountAssignmentDeletionStatus'
-              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
-              - 'sso:GetInlinePolicyForPermissionSet'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAY
-            Action:
-              - 'apigateway:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAYV2
-            Action:
-              - 'apigatewayv2:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SNS
-            Action:
-              - 'sns:GetDataProtectionPolicy'
-              - 'sns:ListPlatformApplications'
-              - 'sns:GetSubscriptionAttributes'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLUE
-            Action:
-              - 'glue:ListWorkflows'
-              - 'glue:BatchGetWorkflows'
-              - 'glue:GetWorkflows'
-              - 'glue:GetTags'
-              - 'glue:GetTables'
-              - 'glue:GetTable'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLACIER
-            Action:
-              - 'glacier:ListTagsForVault'
-            Effect: Allow
-            Resource: '*'
-          - Sid: CODEBUILD
-            Action:
-              - 'codebuild:ListBuilds'
-              - 'codebuild:BatchGetBuilds'
-            Effect: Allow
-            Resource: '*'
-          - Sid: WAFREGIONAL
-            Action:
-              - 'waf-regional:ListRules'
-              - 'waf-regional:GetRule'
-              - 'waf-regional:ListRuleGroups'
-              - 'waf-regional:GetRuleGroup'
-              - 'waf-regional:ListActivatedRulesInRuleGroup'
-            Effect: Allow
-            Resource: '*'
-          - Sid: NETWORKFIREWALL
-            Effect: Allow
-            Action:
-              - 'network-firewall:DescribeLoggingConfiguration'
-            Resource: '*'
-          - Sid: WAFV2
-            Effect: Allow
-            Action:
-              - 'wafv2:ListWebACLs'
-              - 'wafv2:ListRegexPatternSets'
-              - 'wafv2:ListIPSets'
-            Resource:
-              - '*'
-          - Sid: STATES
-            Action:
-              - 'states:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-      Roles:
-        - !Ref LaceworkCWSSACrossAccountAccessRole
-  LaceworkCWSPolicy2:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: LaceworkCWSPolicy2
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: KINESISVIDEO
-            Action:
-              - 'kinesisvideo:GetSignalingChannelEndpoint'
-              - 'kinesisvideo:GetDataEndpoint'
-              -  'kinesisvideo:DescribeImageGenerationConfiguration'
-            Effect: Allow
-            Resource: '*'
-          - Sid: AMP
-            Action:
-              - 'aps:ListScrapers'
-              - 'aps:DescribeScraper'
-              - 'aps:ListWorkspaces'
-              - 'aps:DescribeAlertManagerDefinition'
-              - 'aps:DescribeLoggingConfiguration'
-              - 'aps:DescribeWorkspace'
-              - 'aps:ListRuleGroupsNamespaces'
-              - 'aps:DescribeRuleGroupsNamespace'
-              - 'aps:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APPSTREAM
-            Action:
-              - 'appstream:Describe*'
-              - 'appstream:List*'
-            Effect: Allow
-            Resource: '*'
-          - Sid: PERSONALIZE
-            Action:
-              - 'personalize:Describe*'
-              - 'personalize:List*'
-              - 'personalize:GetSolutionMetrics'
-            Effect: Allow
-            Resource: '*'
-          - Sid: CODEARTIFACT
-            Action:
-              - 'codeartifact:ListDomains'
-              - 'codeartifact:DescribeDomain'
-              - 'codeartifact:DescribeRepository'
-              - 'codeartifact:ListPackages'
-              - 'codeartifact:GetRepositoryEndpoint'
-              - 'codeartifact:DescribePackage'
-              - 'codeartifact:ListPackageVersions'
-              - 'codeartifact:DescribePackageVersion'
-              - 'codeartifact:GetPackageVersionReadme'
-              - 'codeartifact:ListPackageVersionDependencies'
-              - 'codeartifact:ListPackageVersionAssets'
-              - 'codeartifact:GetPackageVersionAsset'
-              - 'codeartifact:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: FIS
-            Action:
-              - 'fis:ListActions'
-              - 'fis:GetAction'
-              - 'fis:ListExperimentTemplates'
-              - 'fis:GetExperimentTemplate'
-              - 'fis:ListTargetAccountConfigurations'
-              - 'fis:ListExperiments'
-              - 'fis:GetExperiment'
-              - 'fis:ListExperimentResolvedTargets'
-              - 'fis:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: MEMORYDB
-            Action:
-              - 'memorydb:DescribeMultiRegionClusters'
-              - 'memorydb:DescribeSnapshots'
-              - 'memorydb:DescribeSubnetGroups'
-              - 'memorydb:DescribeParameterGroups'
-              - 'memorydb:DescribeParameters'
-              - 'memorydb:DescribeUsers'
-              - 'memorydb:DescribeACLs'
-              - 'memorydb:DescribeServiceUpdates'
-              - 'memorydb:DescribeEngineVersions'
-              - 'memorydb:DescribeReservedNodes'
-              - 'memorydb:DescribeReservedNodesOfferings'
-              - 'memorydb:ListTags'
-              - 'memorydb:ListAllowedNodeTypeUpdates'
-              - 'memorydb:ListAllowedMultiRegionClusterUpdates'
-            Effect: Allow
-            Resource: '*'
-          - Sid: QBUSINESS
-            Action:
-              - 'qbusiness:GetApplication'
-              - 'qbusiness:GetChatControlsConfiguration'
-              - 'qbusiness:GetPolicy'
-              - 'qbusiness:ListAttachments'
-              - 'qbusiness:ListConversations'
-              - 'qbusiness:ListMessages'
-              - 'qbusiness:ListDataAccessors'
-              - 'qbusiness:GetDataAccessor'
-              - 'qbusiness:GetIndex'
-              - 'qbusiness:GetDataSource'
-              - 'qbusiness:GetPlugin'
-              - 'qbusiness:ListPluginActions'
-              - 'qbusiness:GetRetriever'
-              - 'qbusiness:GetWebExperience'
-              - 'qbusiness:ListPluginTypeMetadata'
-              - 'qbusiness:ListPluginTypeActions'
-            Effect: Allow
-            Resource: '*'
-          - Sid: QAPPS
-            Action:
-              - 'qapps:DescribeQAppPermissions'
-              - 'qapps:GetLibraryItem'
-              - 'qapps:GetQApp'
-              - 'qapps:GetQAppSession'
-              - 'qapps:GetQAppSessionMetadata'
-              - 'qapps:ListCategories'
-              - 'qapps:ListLibraryItems'
-              - 'qapps:ListQAppSessionData'
-              - 'qapps:ListQApps'
-              - 'qapps:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: QCONNECT
-            Action:
-              - 'wisdom:GetAIAgent'
-              - 'wisdom:GetAIGuardrail'
-              - 'wisdom:GetAIPrompt'
-              - 'wisdom:GetContent'
-              - 'wisdom:GetImportJob'
-              - 'wisdom:GetKnowledgeBase'
-              - 'wisdom:GetMessageTemplate'
-              - 'wisdom:GetQuickResponse'
-              - 'wisdom:ListAIAgentVersions'
-              - 'wisdom:ListAIAgents'
-              - 'wisdom:ListAIGuardrailVersions'
-              - 'wisdom:ListAIGuardrails'
-              - 'wisdom:ListAIPromptVersions'
-              - 'wisdom:ListAIPrompts'
-              - 'wisdom:ListAssistantAssociations'
-              - 'wisdom:ListAssistants'
-              - 'wisdom:ListContentAssociations'
-              - 'wisdom:ListContents'
-              - 'wisdom:ListImportJobs'
-              - 'wisdom:ListKnowledgeBases'
-              - 'wisdom:ListMessageTemplateVersions'
-              - 'wisdom:ListMessageTemplates'
-              - 'wisdom:ListQuickResponses'
-              - 'wisdom:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: RESOURCEGROUPS
-            Action:
-              - 'resource-groups:ListGroups'
-              - 'resource-groups:GetGroupQuery'
-              - 'resource-groups:GetGroupConfiguration'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SERVICECATALOGAPPREGISTRY
-            Action:
-              - 'servicecatalog:GetApplication'
-              - 'servicecatalog:ListApplications'
-              - 'servicecatalog:GetAssociatedResource'
-              - 'servicecatalog:ListAssociatedResources'
-              - 'servicecatalog:ListAssociatedAttributeGroups'
-              - 'servicecatalog:GetAttributeGroup'
-              - 'servicecatalog:ListAttributeGroups'
-              - 'servicecatalog:ListTagsForResource'
-              - 'servicecatalog:ListAttributeGroupsForApplication'
-              - 'servicecatalog:GetConfiguration'
-            Effect: Allow
-            Resource: '*'
-          - Sid: OAM
-            Action:
-              - 'oam:GetLink'
-              - 'oam:GetSink'
-              - 'oam:GetSinkPolicy'
-              - 'oam:ListAttachedLinks'
-              - 'oam:ListLinks'
-              - 'oam:ListSinks'
-            Effect: Allow
-            Resource: '*'
-          - Sid: CLOUDDIRECTORY
-            Action:
-              - 'clouddirectory:GetAppliedSchemaVersion'
-              - 'clouddirectory:GetDirectory'
-              - 'clouddirectory:GetFacet'
-              - 'clouddirectory:GetLinkAttributes'
-              - 'clouddirectory:GetObjectAttributes'
-              - 'clouddirectory:GetObjectInformation'
-              - 'clouddirectory:GetSchemaAsJson'
-              - 'clouddirectory:GetTypedLinkFacetInformation'
-              - 'clouddirectory:ListAppliedSchemaArns'
-              - 'clouddirectory:ListAttachedIndices'
-              - 'clouddirectory:ListDevelopmentSchemaArns'
-              - 'clouddirectory:ListFacetAttributes'
-              - 'clouddirectory:ListFacetNames'
-              - 'clouddirectory:ListIncomingTypedLinks'
-              - 'clouddirectory:ListIndex'
-              - 'clouddirectory:ListManagedSchemaArns'
-              - 'clouddirectory:ListObjectAttributes'
-              - 'clouddirectory:ListObjectChildren'
-              - 'clouddirectory:ListObjectParentPaths'
-              - 'clouddirectory:ListObjectParents'
-              - 'clouddirectory:ListObjectPolicies'
-              - 'clouddirectory:ListOutgoingTypedLinks'
-              - 'clouddirectory:ListPolicyAttachments'
-              - 'clouddirectory:ListPublishedSchemaArns'
-              - 'clouddirectory:ListTagsForResource'
-              - 'clouddirectory:ListTypedLinkFacetAttributes'
-              - 'clouddirectory:ListTypedLinkFacetNames'
-            Effect: Allow
-            Resource: '*'
-          - Sid: COSTOPTIMIZATIONHUB
-            Action:
-              - 'cost-optimization-hub:GetPreferences'
-              - 'cost-optimization-hub:GetRecommendation'
-              - 'cost-optimization-hub:ListEnrollmentStatuses'
-              - 'cost-optimization-hub:ListRecommendationSummaries'
-              - 'cost-optimization-hub:ListRecommendations'
-            Effect: Allow
-            Resource: '*'
-          - Sid: BUDGETS
-            Action:
-              - 'budgets:DescribeBudgetAction'
-              - 'budgets:DescribeBudgetActionHistories'
-              - 'budgets:DescribeBudgetActionsForAccount'
-              - 'budgets:DescribeBudgetActionsForBudget'
-              - 'budgets:ListTagsForResource'
-              - 'budgets:ViewBudget'
-            Effect: Allow
-            Resource: '*'
-          - Sid: BILLINGCONSOLE
-            Action:
-              - 'aws-portal:GetConsoleActionSetEnforced'
-              - 'aws-portal:ViewAccount'
-              - 'aws-portal:ViewBilling'
-              - 'aws-portal:ViewPaymentMethods'
-              - 'aws-portal:ViewUsage'
-            Effect: Allow
-            Resource: '*'
-      Roles:
-        - !Ref LaceworkCWSSACrossAccountAccessRole
-  LaceworkCWSDecryptPolicy:
-    Type: 'AWS::IAM::Policy'
-    Condition: UseKMSDecrypt
-    Properties:
-      PolicyName: LaceworkCWSDecryptPolicy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: DecryptLogFiles
-            Action:
-              - 'kms:Decrypt'
-            Effect: Allow
-            Resource: !Ref KMSKeyIdentifierArn
-      Roles:
-        - !Ref LaceworkCWSSACrossAccountAccessRole
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:GetQueueUrl'
+            Resource: !GetAtt LaceworkCWSQueue.Arn
+      Queues:
+        - !Ref LaceworkCWSQueue
 Outputs:
-  RoleARN:
-    Description: >-
-      Cross-account access role ARN to share with Lacework for CloudTrail
-      integration
-    Value: !GetAtt
-      - LaceworkCWSSACrossAccountAccessRole
-      - Arn
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
-    Value: !Ref SqsQueueUrl
+    Value: !Ref LaceworkCWSQueue
   TemplateVersion:
     Description: Template version
     Value: '1.1'
