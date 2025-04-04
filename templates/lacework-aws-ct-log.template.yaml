@@ -64,9 +64,9 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:
-    Type: 'AWS::IAM::Policy'
+    Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      PolicyName: LaceworkCWSPolicy
+      ManagedPolicyName: LaceworkCWSPolicy
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -120,101 +120,12 @@ Resources:
               - 'elasticfilesystem:ListTagsForResource'
             Effect: Allow
             Resource: '*'
-          - Sid: SagemakerPolicies
-            Action:
-              - 'sagemaker:GetLineageGroupPolicy'
-              - 'sagemaker:GetModelPackageGroupPolicy'
-            Effect: Allow
-            Resource: '*'
-          - Sid: IdentityStoreReadOnly
-            Action:
-              - 'identitystore:DescribeGroup'
-              - 'identitystore:DescribeGroupMembership'
-              - 'identitystore:DescribeUser'
-              - 'identitystore:ListGroupMemberships'
-              - 'identitystore:ListGroupMembershipsForMember'
-              - 'identitystore:ListGroups'
-              - 'identitystore:ListUsers'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SSOReadOnly
-            Action:
-              - 'sso:DescribeAccountAssignmentDeletionStatus'
-              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
-              - 'sso:GetInlinePolicyForPermissionSet'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAY
-            Action:
-              - 'apigateway:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAYV2
-            Action:
-              - 'apigatewayv2:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SNS
-            Action:
-              - 'sns:GetDataProtectionPolicy'
-              - 'sns:ListPlatformApplications'
-              - 'sns:GetSubscriptionAttributes'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLUE
-            Action:
-              - 'glue:ListWorkflows'
-              - 'glue:BatchGetWorkflows'
-              - 'glue:GetWorkflows'
-              - 'glue:GetTags'
-              - 'glue:GetTables'
-              - 'glue:GetTable'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLACIER
-            Action:
-              - 'glacier:ListTagsForVault'
-            Effect: Allow
-            Resource: '*'
-          - Sid: CODEBUILD
-            Action:
-              - 'codebuild:ListBuilds'
-              - 'codebuild:BatchGetBuilds'
-            Effect: Allow
-            Resource: '*'
-          - Sid: WAFREGIONAL
-            Action:
-              - 'waf-regional:ListRules'
-              - 'waf-regional:GetRule'
-              - 'waf-regional:ListRuleGroups'
-              - 'waf-regional:GetRuleGroup'
-              - 'waf-regional:ListActivatedRulesInRuleGroup'
-            Effect: Allow
-            Resource: '*'
-          - Sid: NETWORKFIREWALL
-            Effect: Allow
-            Action:
-              - 'network-firewall:DescribeLoggingConfiguration'
-            Resource: '*'
-          - Sid: WAFV2
-            Effect: Allow
-            Action:
-              - 'wafv2:ListWebACLs'
-              - 'wafv2:ListRegexPatternSets'
-              - 'wafv2:ListIPSets'
-            Resource:
-              - '*'
-          - Sid: STATES
-            Action:
-              - 'states:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSPolicy2:
-    Type: 'AWS::IAM::Policy'
+    Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      PolicyName: LaceworkCWSPolicy2
+      ManagedPolicyName: LaceworkCWSPolicy2
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -392,6 +303,98 @@ Resources:
               - 'oam:ListSinks'
             Effect: Allow
             Resource: '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSPolicy3:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: LaceworkCWSPolicy3
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SES
+            Action:
+              - 'ses:ListContactLists'
+              - 'ses:GetContactList'
+              - 'ses:ListContacts'
+              - 'ses:GetContact'
+              - 'ses:ListCustomVerificationEmailTemplates'
+              - 'ses:GetCustomVerificationEmailTemplate'
+              - 'ses:GetDedicatedIpPool'
+              - 'ses:ListDeliverabilityTestReports'
+              - 'ses:GetDeliverabilityTestReport'
+              - 'ses:ListEmailIdentities'
+              - 'ses:GetEmailIdentity'
+              - 'ses:GetEmailIdentityPolicies'
+              - 'ses:ListEmailTemplates'
+              - 'ses:GetEmailTemplate'
+              - 'ses:ListImportJobs'
+              - 'ses:GetImportJob'
+              - 'ses:ListRecommendations'
+              - 'ses:ListSuppressedDestinations'
+              - 'ses:GetSuppressedDestination'
+              - 'ses:ListTagsForResource'
+            Effect: Allow
+            Resource: '*'
+          - Sid: BACKUP
+            Action:
+              - 'backup:ListBackupJobs'
+              - 'backup:DescribeBackupJob'
+              - 'backup:ListBackupPlanTemplates'
+              - 'backup:GetBackupPlanFromTemplate'
+              - 'backup:ListBackupPlans'
+              - 'backup:GetBackupPlan'
+              - 'backup:ListBackupPlanVersions'
+              - 'backup:ListBackupSelections'
+              - 'backup:GetBackupSelection'
+              - 'backup:DescribeBackupVault'
+              - 'backup:ListRecoveryPointsByBackupVault'
+              - 'backup:DescribeRecoveryPoint'
+              - 'backup:GetRecoveryPointRestoreMetadata'
+              - 'backup:ListCopyJobs'
+              - 'backup:ListFrameworks'
+              - 'backup:DescribeFramework'
+              - 'backup:ListLegalHolds'
+              - 'backup:GetLegalHold'
+              - 'backup:ListRecoveryPointsByLegalHold'
+              - 'backup:ListProtectedResources'
+              - 'backup:DescribeProtectedResource'
+              - 'backup:ListRecoveryPointsByResource'
+              - 'backup:ListReportPlans'
+              - 'backup:ListRestoreJobs'
+            Effect: Allow
+            Resource: '*'
+          - Sid: COGNITOIDP
+            Action:
+              - 'cognito-idp:GetSigningCertificate'
+              - 'cognito-idp:GetCSVHeader'
+              - 'cognito-idp:GetUserPoolMfaConfig'
+              - 'cognito-idp:GetUICustomization'
+            Effect: Allow
+            Resource: '*'
+          - Sid: COMPUTEOPTIMIZER
+            Action:
+              - 'compute-optimizer:DescribeRecommendationExportJobs'
+              - 'compute-optimizer:GetAutoScalingGroupRecommendations'
+              - 'compute-optimizer:GetEffectiveRecommendationPreferences'
+              - 'compute-optimizer:GetEBSVolumeRecommendations'
+              - 'compute-optimizer:GetEC2InstanceRecommendations'
+              - 'compute-optimizer:GetEnrollmentStatus'
+              - 'compute-optimizer:GetLambdaFunctionRecommendations'
+              - 'compute-optimizer:GetRecommendationPreferences'
+              - 'compute-optimizer:GetRecommendationSummaries'
+              - 'compute-optimizer:GetEcsServiceRecommendations'
+              - 'compute-optimizer:GetLicenseRecommendations'
+            Effect: Allow
+            Resource: '*'
+          - Sid: KINESISANALYTICS
+            Action:
+              - 'kinesisanalytics:ListApplicationSnapshots'
+              - 'kinesisanalytics:ListApplicationVersions'
+              - 'kinesisanalytics:DescribeApplicationVersion'
+              - 'kinesisanalytics:DescribeApplication'
+            Effect: Allow
+            Resource: '*'
           - Sid: CLOUDDIRECTORY
             Action:
               - 'clouddirectory:GetAppliedSchemaVersion'
@@ -453,6 +456,103 @@ Resources:
             Resource: '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSPolicy4:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: LaceworkCWSPolicy4
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: SagemakerPolicies
+            Action:
+              - 'sagemaker:GetLineageGroupPolicy'
+              - 'sagemaker:GetModelPackageGroupPolicy'
+            Effect: Allow
+            Resource: '*'
+          - Sid: IdentityStoreReadOnly
+            Action:
+              - 'identitystore:DescribeGroup'
+              - 'identitystore:DescribeGroupMembership'
+              - 'identitystore:DescribeUser'
+              - 'identitystore:ListGroupMemberships'
+              - 'identitystore:ListGroupMembershipsForMember'
+              - 'identitystore:ListGroups'
+              - 'identitystore:ListUsers'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SSOReadOnly
+            Action:
+              - 'sso:DescribeAccountAssignmentDeletionStatus'
+              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
+              - 'sso:GetInlinePolicyForPermissionSet'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAY
+            Action:
+              - 'apigateway:GET'
+            Effect: Allow
+            Resource: '*'
+          - Sid: APIGATEWAYV2
+            Action:
+              - 'apigatewayv2:Get*'
+            Effect: Allow
+            Resource: '*'
+          - Sid: SNS
+            Action:
+              - 'sns:GetDataProtectionPolicy'
+              - 'sns:ListPlatformApplications'
+              - 'sns:GetSubscriptionAttributes'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLUE
+            Action:
+              - 'glue:ListWorkflows'
+              - 'glue:BatchGetWorkflows'
+              - 'glue:GetTags'
+              - 'glue:GetTables'
+              - 'glue:GetTable'
+            Effect: Allow
+            Resource: '*'
+          - Sid: GLACIER
+            Action:
+              - 'glacier:ListTagsForVault'
+            Effect: Allow
+            Resource: '*'
+          - Sid: CODEBUILD
+            Action:
+              - 'codebuild:ListBuilds'
+              - 'codebuild:BatchGetBuilds'
+            Effect: Allow
+            Resource: '*'
+          - Sid: WAFREGIONAL
+            Action:
+              - 'waf-regional:ListRules'
+              - 'waf-regional:GetRule'
+              - 'waf-regional:ListRuleGroups'
+              - 'waf-regional:GetRuleGroup'
+              - 'waf-regional:ListActivatedRulesInRuleGroup'
+            Effect: Allow
+            Resource: '*'
+          - Sid: NETWORKFIREWALL
+            Effect: Allow
+            Action:
+              - 'network-firewall:DescribeLoggingConfiguration'
+            Resource: '*'
+          - Sid: WAFV2
+            Effect: Allow
+            Action:
+              - 'wafv2:ListWebACLs'
+              - 'wafv2:ListRegexPatternSets'
+              - 'wafv2:ListIPSets'
+            Resource:
+              - '*'
+          - Sid: STATES
+            Action:
+              - 'states:ListTagsForResource'
+            Effect: Allow
+            Resource: '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSDecryptPolicy:
     Type: 'AWS::IAM::Policy'
     Condition: UseKMSDecrypt
@@ -482,3 +582,4 @@ Outputs:
   TemplateVersion:
     Description: Template version
     Value: '1.1'
+
