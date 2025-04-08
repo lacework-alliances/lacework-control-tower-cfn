@@ -358,6 +358,11 @@ Resources:
             Action:
             - cloudformation:DeleteStackSet
             - cloudformation:DeleteStackInstances
+            Resource:
+              !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/', 'Lacework-*' ]]
+          - Sid: StackSetInstanceDescribeStackSetOperation
+            Effect: Allow
+            Action:
             - cloudformation:DescribeStackSetOperation
             Resource:
               !Join ['', ['arn:aws:cloudformation:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':stackset/', '*' ]]
