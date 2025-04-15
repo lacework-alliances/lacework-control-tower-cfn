@@ -117,6 +117,20 @@ If using Lacework and AWS Organization Support, ensure that you are generating a
 2. Go to **Settings > Cloud Accounts**.
 3. You should see a list of AWS accounts that are now being monitored by Lacework. The **Cloud Account** column values correspond to the AWS Account IDs.
 
+### 6. Add Configuration to the Log Archive account (Recommended):
+
+The Lacework FortiCNAPP cross account role in the Log Archive account includes the policies required for the Configuration integration. In the Lacework FortiCNAPP console:
+
+1. Choose **Settings, Cloud Accounts**.
+2. Choose **Amazon Web Services (AWS)**, and select **Manual configuration**.
+3. Choose **Configuration** from the dropdown.
+4. Supply the **Name** for the integration, the **Account ID**, and **Role ARN**.
+5. Remove the dynamically generated **External ID**.
+6. Within the AWS cosole, navigate to the Lacework cross account IAM role in the log archive account, and click on the **Trust relationships** tab.
+7. Copy the external ID from the policy (**"lweid:<csp>:<version>:<tenant_name>:<aws_account_id>:<random_string_size_10>"**).
+8. Paste this value into the **External ID** field in the Lacework integration setup. 
+9. Click **Save**.
+
 ## Remove the Lacework AWS Control Tower Integration
 
 To remove the Lacework AWS Control Tower Integration, simply delete the main stack. All CloudFormation stacksets, stack instances, and Lambda functions will be deleted. **Note:** Lacework will no longer monitor your AWS cloud environment.
