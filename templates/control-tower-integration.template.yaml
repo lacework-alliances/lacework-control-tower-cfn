@@ -13,6 +13,8 @@ Metadata:
           - ExistingAccounts
           - ExistingCloudTrail
           - KMSKeyIdentifierARN
+          - LogAccountId
+          - AuditAccountId
           - LogAccountName
           - AuditAccountName
       - Label:
@@ -49,6 +51,10 @@ Metadata:
         default: Monitor Existing Accounts
       ExistingCloudTrail:
         default: Existing AWS Control Tower CloudTrail Name
+      LogAccountId:
+        default: Log Account ID
+      AuditAccountId:
+        default: Audit Account ID
       LogAccountName:
         default: Log Account Name
       AuditAccountName:
@@ -124,6 +130,20 @@ Parameters:
     ConstraintDescription: "Invalid CloudTrail name."
     Description: "Enter your existing AWS Control Tower CloudTrail name."
     Default: 'aws-controltower-BaselineCloudTrail'
+  LogAccountId:
+    Type: String
+    Description: "AWS Account ID for Log Archive (must be a valid AWS Account ID)."
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    ConstraintDescription: "The Log Archive Account ID should be a 12-digit number."
+  AuditAccountId:
+    Type: String
+    Description: "AWS Account ID for Audit (must be a valid AWS Account ID)."
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    ConstraintDescription: "The Audit Account ID should be a 12-digit number."
   LogAccountName:
     Type: String
     Description: "Enter your AWS Control Tower log account name."
@@ -179,6 +199,70 @@ Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
 
+# validate the account information matches
+  ValidateAccounts:
+    Type: Custom::ValidateAccounts
+    Properties:
+      ServiceToken: !GetAtt AccountValidatorFunction.Arn
+      LogAccountId: !Ref LogAccountId
+      AuditAccountId: !Ref AuditAccountId
+      ExpectedLogAccountName: !Ref LogAccountName
+      ExpectedAuditAccountName: !Ref AuditAccountName
+  
+  AccountValidatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ValidateAccountsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: organizations:DescribeAccount
+                Resource: "*"
+              - Effect: Allow
+                Action: logs:*
+                Resource: "*"
+
+  AccountValidatorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.9
+      Role: !GetAtt AccountValidatorRole.Arn
+      Handler: index.lambda_handler
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def lambda_handler(event, context):
+              try:
+                  org = boto3.client('organizations')
+                  log_account_id = event['ResourceProperties']['LogAccountId'].strip()
+                  audit_account_id = event['ResourceProperties']['AuditAccountId'].strip()
+                  expected_log_name = event['ResourceProperties']['ExpectedLogAccountName'].strip()
+                  expected_audit_name = event['ResourceProperties']['ExpectedAuditAccountName'].strip()
+                  log_account = org.describe_account(AccountId=log_account_id)['Account']
+                  audit_account = org.describe_account(AccountId=audit_account_id)['Account']
+                  log_name = log_account['Name'].strip()
+                  audit_name = audit_account['Name'].strip()
+                  if log_name != expected_log_name:
+                      raise Exception(f"Log account name mismatch. Expected '{expected_log_name}', got '{log_name}'.")
+                  if audit_name != expected_audit_name:
+                      raise Exception(f"Audit account name mismatch. Expected '{expected_audit_name}', got '{audit_name}'.")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'ValidationResult': 'Valid'
+                  })
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Reason': str(e)})
+
   CopyZips:
     Type: Custom::CopyZips
     Properties:
@@ -225,6 +309,8 @@ Resources:
 
   CopyZipsFunction:
     Type: AWS::Lambda::Function
+    DependsOn:
+      - ValidateAccounts
     Properties:
       Description: Copies objects from the S3 bucket to a new location.
       Handler: index.handler
