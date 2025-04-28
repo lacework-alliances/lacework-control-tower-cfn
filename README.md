@@ -96,15 +96,16 @@ If using Lacework and AWS Organization Support, ensure that you are generating a
    "Resource": "*"
    ```
    ![control_tower_kms_key_policy.png](https://docs.lacework.com/assets/images/control_tower_kms_key_policy-ba8f68668bb3cadc57c74364a5a657d3.png)
-    * Update the Control Tower **Log Account Name** and **Audit Account Name** if necessary.
+    * Provide the **Audit Account ID** and **Log Account ID**.
+    * Update the Control Tower **Log Account Name** and **Audit Account Name** if necessary. The integration will attempt to verify the account IDs and account names, and will fail if there is a mismatch. 
     * If using AWS organizations to Lacework sub-account mapping, specify a comma-separated lists of organization names in the **Organization Configuration** section in the **AWS Organizations to Lacework Sub-Account Names** field. AWS accounts will be added to the appropriate Lacework sub-accounts based on this AWS organization-to-Lacework sub-account name mapping. AWS organization names and Lacework sub-account names must match. AWS accounts not in the specified organizations will not be added to Lacework.
       
    ![organization_configuration](https://user-images.githubusercontent.com/6440106/154780412-7543afb2-f84e-42e4-b31d-0b0cc2d6c55a.png)
     * If using a single Lacework sub-account for all AWS accounts, specify a Lacework sub-account for which all AWS accounts will be added. This is specified in the **Single Sub-Account Configuration** section in the **Lacework Sub-Account Name** field.
       
    ![sub_account_configuration](https://user-images.githubusercontent.com/6440106/154780411-50b270b5-4246-4e12-acb1-b1d4997b5671.png)
-3. Click **Next** through to your stack **Review**.
-4. Accept the AWS CloudFormation terms and click **Create stack**.
+4. Click **Next** through to your stack **Review**.
+5. Accept the AWS CloudFormation terms and click **Create stack**.
 
 ### 4. CloudFormation Progress
 
@@ -177,6 +178,10 @@ You can monitor the CloudFormation events for the Lacework AWS Control Tower int
 Examining these stacksets for operation results, stack instance results and parameters may also provide debug information.
 
 #### Lambda Function CloudWatch Logs
+
+The ValidateAccounts Lambda function will attempt to verify the account IDs against the account names for the Audit and Log accounts. If there is a mismatch, an error like the one below will be shown in the CloudWatch logs:
+
+<img width="1060" alt="Control-Tower-Account-Mismatch-scrubbed" src="https://github.com/user-attachments/assets/60b7a140-75b0-4501-9ba4-2946a5c3d552" />
 
 Two main Lambda functions are used to manage accounts. LaceworkSetupFunction manages the initial deployment of the integration. LaceworkAccountFunction manages enrolling AWS accounts into Lacework. Both Lambda functions provide extensive debug messages that can be seen in their respective CloudWatch log streams. These logs can be exported and provided to the support team.
 
