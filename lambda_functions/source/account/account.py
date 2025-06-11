@@ -81,7 +81,7 @@ def lifecycle_eventbridge_processing(event):
     elif 'updateManagedAccountStatus' in event['detail']['serviceEventDetails'] and \
             event['detail']['serviceEventDetails']['updateManagedAccountStatus']['state'] == "SUCCEEDED":
         account_id = event['detail']['serviceEventDetails']['updateManagedAccountStatus']['account']['accountId']
-        account_name = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountName']
+        account_name = event['detail']['serviceEventDetails']['updateManagedAccountStatus']['account']['accountName']
         logger.info("Processing updateManagedAccountStatus event for account: {}".format(account_id))
         process_ct_lifecycle_event(account_id, account_name, event)
     else:
