@@ -172,8 +172,6 @@ The ValidateAccounts Lambda function will attempt to verify the account IDs agai
 
 Two main Lambda functions are used to manage accounts. LaceworkSetupFunction manages the initial deployment of the integration. LaceworkAccountFunction manages enrolling AWS accounts into Lacework. Both Lambda functions provide extensive debug messages that can be seen in their respective CloudWatch log streams. These logs can be exported and provided to the support team.
 
-![AWS Control Tower CloudFormation Lambda](https://docs.lacework.com/assets/images/aws-control-tower-coudformation-lambda-b200f53d9aa57d4b38f7b1ab09a6b23c.png)
-
 ![cloudwatch](https://user-images.githubusercontent.com/6440106/153986709-96988d28-3996-4450-9aa5-0c6218585b0f.png)
 
 #### Lacework API Access Keys
