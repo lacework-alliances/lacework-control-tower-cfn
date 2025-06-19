@@ -658,5 +658,226 @@ Resources:
               - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20253:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: LaceworkCWSAuditPolicy20253
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: IOT
+            Action:
+              - 'iot:GetCommand'
+              - 'iot:GetCommandExecution'
+              - 'iot:GetEffectivePolicies'
+              - 'iot:GetIndexingConfiguration'
+              - 'iot:GetJobDocument'
+              - 'iot:GetV2LoggingOptions'
+              - 'iot:GetOtaUpdate'
+              - 'iot:GetPackage'
+              - 'iot:GetPackageConfiguration'
+              - 'iot:GetPackageVersion'
+              - 'iot:GetRegistrationCode'
+              - 'iot:GetBehaviorModelTrainingSummaries'
+              - 'iot:GetThingConnectivityData'
+              - 'iot:GetTopicRule'
+              - 'iot:GetTopicRuleDestination'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: IOTEVENTS
+            Action:
+              - 'iotevents:DescribeAlarmModel'
+              - 'iotevents:ListAlarmModels'
+              - 'iotevents:ListTagsForResource'
+              - 'iotevents:ListAlarmModelVersions'
+              - 'iotevents:DescribeDetectorModel'
+              - 'iotevents:ListDetectorModels'
+              - 'iotevents:ListDetectorModelVersions'
+              - 'iotevents:DescribeInput'
+              - 'iotevents:DescribeLoggingOptions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGE
+            Action:
+              - 'mediapackage:ListChannels'
+              - 'mediapackage:ListHarvestJobs'
+              - 'mediapackage:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGEV2
+            Action:
+              - 'mediapackagev2:GetChannel'
+              - 'mediapackagev2:GetChannelPolicy'
+              - 'mediapackagev2:ListChannels'
+              - 'mediapackagev2:ListTagsForResource'
+              - 'mediapackagev2:GetChannelGroup'
+              - 'mediapackagev2:ListChannelGroups'
+              - 'mediapackagev2:ListHarvestJobs'
+              - 'mediapackagev2:GetOriginEndpoint'
+              - 'mediapackagev2:GetOriginEndpointPolicy'
+              - 'mediapackagev2:ListOriginEndpoints'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGEVOD
+            Action:
+              - 'mediapackage-vod:DescribeAsset'
+              - 'mediapackage-vod:ListAssets'
+              - 'mediapackage-vod:ListPackagingConfigurations'
+              - 'mediapackage-vod:ListPackagingGroups'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SUPPORT
+            Action:
+              - 'support:DescribeCases'
+              - 'support:DescribeCommunications'
+              - 'support:DescribeServices'
+              - 'support:DescribeSeverityLevels'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: IMAGEBUILDER
+            Action:
+              - 'imagebuilder:GetComponentPolicy'
+              - 'imagebuilder:ListComponents'
+              - 'imagebuilder:ListTagsForResource'
+              - 'imagebuilder:GetComponent'
+              - 'imagebuilder:ListComponentBuildVersions'
+              - 'imagebuilder:GetContainerRecipe'
+              - 'imagebuilder:GetContainerRecipePolicy'
+              - 'imagebuilder:ListContainerRecipes'
+              - 'imagebuilder:GetDistributionConfiguration'
+              - 'imagebuilder:ListDistributionConfigurations'
+              - 'imagebuilder:GetImagePolicy'
+              - 'imagebuilder:ListImages'
+              - 'imagebuilder:GetImage'
+              - 'imagebuilder:ListImageBuildVersions'
+              - 'imagebuilder:ListImagePackages'
+              - 'imagebuilder:GetImagePipeline'
+              - 'imagebuilder:ListImagePipelines'
+              - 'imagebuilder:GetImageRecipe'
+              - 'imagebuilder:GetImageRecipePolicy'
+              - 'imagebuilder:ListImageRecipes'
+              - 'imagebuilder:ListImageScanFindings'
+              - 'imagebuilder:ListImageScanFindingAggregations'
+              - 'imagebuilder:GetInfrastructureConfiguration'
+              - 'imagebuilder:ListInfrastructureConfigurations'
+              - 'imagebuilder:ListLifecycleExecutions'
+              - 'imagebuilder:ListLifecycleExecutionResources'
+              - 'imagebuilder:GetLifecyclePolicy'
+              - 'imagebuilder:ListLifecyclePolicies'
+              - 'imagebuilder:ListWorkflows'
+              - 'imagebuilder:GetWorkflow'
+              - 'imagebuilder:ListWorkflowBuildVersions'
+              - 'imagebuilder:ListWorkflowExecutions'
+              - 'imagebuilder:GetWorkflowStepExecution'
+              - 'imagebuilder:ListWorkflowStepExecutions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: DETECTIVE
+            Action:
+              - 'detective:BatchGetMembershipDatasources'
+              - 'detective:ListDatasourcePackages'
+              - 'detective:ListTagsForResource'
+              - 'detective:GetInvestigation'
+              - 'detective:ListIndicators'
+              - 'detective:ListInvestigations'
+              - 'detective:ListInvitations'
+              - 'detective:BatchGetGraphMemberDatasources'
+              - 'detective:ListOrganizationAdminAccounts'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: BATCH
+            Action:
+              - 'batch:DescribeJobs'
+              - 'batch:ListJobs'
+              - 'batch:ListTagsForResource'
+              - 'batch:DescribeJobQueues'
+              - 'batch:DescribeSchedulingPolicies'
+              - 'batch:ListSchedulingPolicies'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: NETWORKMANAGER
+            Action:
+              - 'networkmanager:GetConnectAttachment'
+              - 'networkmanager:GetSiteToSiteVpnAttachment'
+              - 'networkmanager:GetTransitGatewayRouteTableAttachment'
+              - 'networkmanager:GetVpcAttachment'
+              - 'networkmanager:ListAttachments'
+              - 'networkmanager:GetConnectPeer'
+              - 'networkmanager:ListConnectPeers'
+              - 'networkmanager:GetCoreNetwork'
+              - 'networkmanager:GetCoreNetworkChangeEvents'
+              - 'networkmanager:GetCoreNetworkChangeSet'
+              - 'networkmanager:GetCoreNetworkPolicy'
+              - 'networkmanager:GetNetworkRoutes'
+              - 'networkmanager:ListCoreNetworkPolicyVersions'
+              - 'networkmanager:ListCoreNetworks'
+              - 'networkmanager:GetConnectPeerAssociations'
+              - 'networkmanager:GetConnections'
+              - 'networkmanager:GetCustomerGatewayAssociations'
+              - 'networkmanager:GetDevices'
+              - 'networkmanager:GetLinkAssociations'
+              - 'networkmanager:GetLinks'
+              - 'networkmanager:GetNetworkResourceCounts'
+              - 'networkmanager:GetNetworkResourceRelationships'
+              - 'networkmanager:GetNetworkResources'
+              - 'networkmanager:GetNetworkTelemetry'
+              - 'networkmanager:GetResourcePolicy'
+              - 'networkmanager:GetSites'
+              - 'networkmanager:GetTransitGatewayConnectPeerAssociations'
+              - 'networkmanager:GetTransitGatewayRegistrations'
+              - 'networkmanager:GetTransitGatewayPeering'
+              - 'networkmanager:ListPeerings'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CODEPIPELINE
+            Action:
+              - 'codepipeline:ListActionExecutions'
+              - 'codepipeline:GetActionType'
+              - 'codepipeline:ListActionTypes'
+              - 'codepipeline:ListTagsForResource'
+              - 'codepipeline:ListPipelineExecutions'
+              - 'codepipeline:ListRuleExecutions'
+              - 'codepipeline:ListRuleTypes'
+              - 'codepipeline:ListWebhooks'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: GREENGRASS
+            Action:
+              - 'greengrass:GetBulkDeploymentStatus'
+              - 'greengrass:GetGroupCertificateAuthority'
+              - 'greengrass:GetConnectorDefinitionVersion'
+              - 'greengrass:GetCoreDefinitionVersion'
+              - 'greengrass:GetDeploymentStatus'
+              - 'greengrass:GetDeviceDefinitionVersion'
+              - 'greengrass:GetFunctionDefinitionVersion'
+              - 'greengrass:GetAssociatedRole'
+              - 'greengrass:GetGroupCertificateConfiguration'
+              - 'greengrass:GetGroupVersion'
+              - 'greengrass:GetLoggerDefinitionVersion'
+              - 'greengrass:GetResourceDefinitionVersion'
+              - 'greengrass:GetServiceRoleForAccount'
+              - 'greengrass:GetSubscriptionDefinitionVersion'
+              - 'greengrass:DescribeComponent'
+              - 'greengrass:GetComponent'
+              - 'greengrass:GetConnectivityInfo'
+              - 'greengrass:GetCoreDevice'
+              - 'greengrass:GetDeployment'
+              - 'greengrass:GetServiceRoleForAccount'
+            Effect: Allow
+            Resource:
+              - '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
 
 
