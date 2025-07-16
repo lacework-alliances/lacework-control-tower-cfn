@@ -35,7 +35,7 @@ $(s3_buckets):
 
 _upload:
 	$(info [+] Uploading templates to $(BUCKET_NAME) bucket)
-	@aws --profile $(PROFILE) --region $(REGION) s3 cp $(CFT_DIR)/ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(CFT_PREFIX) --recursive --exclude "*" --include "*.yaml" --include "*.yml" --acl public-read
+	@aws --region $(REGION) s3 cp $(CFT_DIR)/ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(CFT_PREFIX) --recursive --exclude "*" --include "*.yaml" --include "*.yml" --acl public-read
 
 _upload_zip: $(ZIP_SUBDIRS)
 
@@ -43,6 +43,6 @@ $(ZIP_SUBDIRS): $(ZIP_FILES)
 
 $(ZIP_FILES):
 	$(info [+] Uploading zip files to $(BUCKET_NAME) bucket)
-	@aws --profile $(PROFILE) --region $(REGION) s3 cp $@ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(PACKAGES_PREFIX) --acl public-read
+	@aws --region $(REGION) s3 cp $@ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(PACKAGES_PREFIX) --acl public-read
 
 .PHONY: $(TOPTARGETS) $(SUBDIRS) $(s3_buckets) $(ZIP_FILES)
