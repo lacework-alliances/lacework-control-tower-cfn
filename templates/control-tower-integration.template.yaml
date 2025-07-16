@@ -234,7 +234,7 @@ Resources:
   AccountValidatorFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Runtime: python3.9
+      Runtime: python3.11
       Role: !GetAtt AccountValidatorRole.Arn
       Handler: index.lambda_handler
       Timeout: 300
@@ -314,7 +314,7 @@ Resources:
     Properties:
       Description: Copies objects from the S3 bucket to a new location.
       Handler: index.handler
-      Runtime: python3.9
+      Runtime: python3.11
       Role: !GetAtt 'CopyZipsRole.Arn'
       Timeout: 240
       Code:
@@ -378,7 +378,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.3.2.zip']]
       Handler: setup.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 900
       Environment:
         Variables:
@@ -609,7 +609,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.3.2.zip']]
       Handler: account.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 900
       Environment:
         Variables:
@@ -656,7 +656,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAuth3.3.0.zip']]
       Handler: auth.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 120
       Environment:
         Variables:
