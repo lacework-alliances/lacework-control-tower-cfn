@@ -51,7 +51,7 @@ Resources:
   LaceworkCWSPolicy:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: LaceworkCWSPolicy
+      ManagedPolicyName: !Sub "LaceworkCWSPolicy-${AWS::AccountId}"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -72,7 +72,7 @@ Resources:
   LaceworkCWSAuditPolicy:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: LaceworkCWSAuditPolicy
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -293,7 +293,7 @@ Resources:
   LaceworkCWSAuditPolicy20251:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: LaceworkCWSAuditPolicy20251
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy20251-${AWS::AccountId}"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -530,7 +530,7 @@ Resources:
   LaceworkCWSAuditPolicy20252:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: LaceworkCWSAuditPolicy20252
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy20252-${AWS::AccountId}"
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -661,7 +661,7 @@ Resources:
   LaceworkCWSAuditPolicy20253:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: LaceworkCWSAuditPolicy20253
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy20253-${AWS::AccountId}"
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -879,5 +879,6 @@ Resources:
               - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+
 
 

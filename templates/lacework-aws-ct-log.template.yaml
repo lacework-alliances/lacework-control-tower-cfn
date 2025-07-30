@@ -64,7 +64,7 @@ Resources:
   LaceworkCWSPolicy:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: LaceworkCWSLogPolicy
+      ManagedPolicyName: !Sub "LaceworkCWSLogPolicy-${AWS::AccountId}"
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -138,4 +138,5 @@ Outputs:
   TemplateVersion:
     Description: Template version
     Value: '1.1'
+
 
