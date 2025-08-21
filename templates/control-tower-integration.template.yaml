@@ -13,6 +13,8 @@ Metadata:
           - ExistingAccounts
           - ExistingCloudTrail
           - KMSKeyIdentifierARN
+          - LogAccountId
+          - AuditAccountId
           - LogAccountName
           - AuditAccountName
       - Label:
@@ -49,6 +51,10 @@ Metadata:
         default: Monitor Existing Accounts
       ExistingCloudTrail:
         default: Existing AWS Control Tower CloudTrail Name
+      LogAccountId:
+        default: Log Account ID
+      AuditAccountId:
+        default: Audit Account ID
       LogAccountName:
         default: Log Account Name
       AuditAccountName:
@@ -124,6 +130,20 @@ Parameters:
     ConstraintDescription: "Invalid CloudTrail name."
     Description: "Enter your existing AWS Control Tower CloudTrail name."
     Default: 'aws-controltower-BaselineCloudTrail'
+  LogAccountId:
+    Type: String
+    Description: "AWS Account ID for Log Archive (must be a valid AWS Account ID)."
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    ConstraintDescription: "The Log Archive Account ID should be a 12-digit number."
+  AuditAccountId:
+    Type: String
+    Description: "AWS Account ID for Audit (must be a valid AWS Account ID)."
+    MinLength: '12'
+    MaxLength: '12'
+    AllowedPattern: '^\d{12}$'
+    ConstraintDescription: "The Audit Account ID should be a 12-digit number."
   LogAccountName:
     Type: String
     Description: "Enter your AWS Control Tower log account name."
@@ -179,6 +199,70 @@ Resources:
   LambdaZipsBucket:
     Type: AWS::S3::Bucket
 
+# validate the account information matches
+  ValidateAccounts:
+    Type: Custom::ValidateAccounts
+    Properties:
+      ServiceToken: !GetAtt AccountValidatorFunction.Arn
+      LogAccountId: !Ref LogAccountId
+      AuditAccountId: !Ref AuditAccountId
+      ExpectedLogAccountName: !Ref LogAccountName
+      ExpectedAuditAccountName: !Ref AuditAccountName
+  
+  AccountValidatorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ValidateAccountsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: organizations:DescribeAccount
+                Resource: "*"
+              - Effect: Allow
+                Action: logs:*
+                Resource: "*"
+
+  AccountValidatorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.11
+      Role: !GetAtt AccountValidatorRole.Arn
+      Handler: index.lambda_handler
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def lambda_handler(event, context):
+              try:
+                  org = boto3.client('organizations')
+                  log_account_id = event['ResourceProperties']['LogAccountId'].strip()
+                  audit_account_id = event['ResourceProperties']['AuditAccountId'].strip()
+                  expected_log_name = event['ResourceProperties']['ExpectedLogAccountName'].strip()
+                  expected_audit_name = event['ResourceProperties']['ExpectedAuditAccountName'].strip()
+                  log_account = org.describe_account(AccountId=log_account_id)['Account']
+                  audit_account = org.describe_account(AccountId=audit_account_id)['Account']
+                  log_name = log_account['Name'].strip()
+                  audit_name = audit_account['Name'].strip()
+                  if log_name != expected_log_name:
+                      raise Exception(f"Log account name mismatch. Expected '{expected_log_name}', got '{log_name}'.")
+                  if audit_name != expected_audit_name:
+                      raise Exception(f"Audit account name mismatch. Expected '{expected_audit_name}', got '{audit_name}'.")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'ValidationResult': 'Valid'
+                  })
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Reason': str(e)})
+
   CopyZips:
     Type: Custom::CopyZips
     Properties:
@@ -225,10 +309,12 @@ Resources:
 
   CopyZipsFunction:
     Type: AWS::Lambda::Function
+    DependsOn:
+      - ValidateAccounts
     Properties:
       Description: Copies objects from the S3 bucket to a new location.
       Handler: index.handler
-      Runtime: python3.9
+      Runtime: python3.11
       Role: !GetAtt 'CopyZipsRole.Arn'
       Timeout: 240
       Code:
@@ -292,7 +378,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTSetup3.3.2.zip']]
       Handler: setup.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 900
       Environment:
         Variables:
@@ -307,10 +393,10 @@ Resources:
           existing_cloudtrail: !Ref ExistingCloudTrail
           log_account_name: !Ref LogAccountName
           kms_key_id_arn: !Ref KMSKeyIdentifierARN
-          log_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
+          log_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CTLogAccountTemplate}"
           audit_account_name: !Ref AuditAccountName
-          audit_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
-          member_account_template: !Sub "https://s3.amazonaws.com/${S3BucketName}/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
+          audit_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CTAuditAccountTemplate}"
+          member_account_template: !Sub "https://${S3BucketName}.s3.us-west-2.amazonaws.com/${S3KeyPrefix}/templates/${CFGMemberAccountTemplate}"
           cfn_stack: !Ref AWS::StackName
           cfn_stack_id: !Ref AWS::StackId
           external_suffix: !Join ['',['lw',!Select [ 0, !Split [ '-', !Select [ 2, !Split [ '/', !Ref AWS::StackId ] ] ] ] ] ]
@@ -523,7 +609,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAccount3.3.2.zip']]
       Handler: account.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 900
       Environment:
         Variables:
@@ -570,7 +656,7 @@ Resources:
         S3Bucket: !Ref LambdaZipsBucket
         S3Key: !Join ['', [!Ref 'S3KeyPrefix', '/lambda/LaceworkCTAuth3.3.0.zip']]
       Handler: auth.lambda_handler
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 120
       Environment:
         Variables:

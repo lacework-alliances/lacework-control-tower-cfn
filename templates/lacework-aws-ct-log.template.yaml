@@ -61,12 +61,10 @@ Resources:
             Condition:
               StringEquals:
                 'sts:ExternalId': !Ref ExternalID
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:
-    Type: 'AWS::IAM::Policy'
+    Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      PolicyName: LaceworkCWSPolicy
+      ManagedPolicyName: !Sub "LaceworkCWSLogPolicy-${AWS::AccountId}"
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -109,105 +107,6 @@ Resources:
               - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
-          - Sid: EfsPolicies
-            Action:
-              - 'elasticfilesystem:DescribeFileSystemPolicy'
-              - 'elasticfilesystem:DescribeLifecycleConfiguration'
-              - 'elasticfilesystem:DescribeAccessPoints'
-              - 'elasticfilesystem:DescribeAccountPreferences'
-              - 'elasticfilesystem:DescribeBackupPolicy'
-              - 'elasticfilesystem:DescribeReplicationConfigurations'
-              - 'elasticfilesystem:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SagemakerPolicies
-            Action:
-              - 'sagemaker:GetLineageGroupPolicy'
-              - 'sagemaker:GetModelPackageGroupPolicy'
-            Effect: Allow
-            Resource: '*'
-          - Sid: IdentityStoreReadOnly
-            Action:
-              - 'identitystore:DescribeGroup'
-              - 'identitystore:DescribeGroupMembership'
-              - 'identitystore:DescribeUser'
-              - 'identitystore:ListGroupMemberships'
-              - 'identitystore:ListGroupMembershipsForMember'
-              - 'identitystore:ListGroups'
-              - 'identitystore:ListUsers'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SSOReadOnly
-            Action:
-              - 'sso:DescribeAccountAssignmentDeletionStatus'
-              - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
-              - 'sso:GetInlinePolicyForPermissionSet'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAY
-            Action:
-              - 'apigateway:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAYV2
-            Action:
-              - 'apigatewayv2:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SNS
-            Action:
-              - 'sns:GetDataProtectionPolicy'
-              - 'sns:ListPlatformApplications'
-              - 'sns:GetSubscriptionAttributes'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLUE
-            Action:
-              - 'glue:ListWorkflows'
-              - 'glue:BatchGetWorkflows'
-              - 'glue:GetTags'
-              - 'glue:GetTables'
-              - 'glue:GetTable'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLACIER
-            Action:
-              - 'glacier:ListTagsForVault'
-            Effect: Allow
-            Resource: '*'
-          - Sid: CODEBUILD
-            Action:
-              - 'codebuild:ListBuilds'
-              - 'codebuild:BatchGetBuilds'
-            Effect: Allow
-            Resource: '*'
-          - Sid: WAFREGIONAL
-            Action:
-              - 'waf-regional:ListRules'
-              - 'waf-regional:GetRule'
-              - 'waf-regional:ListRuleGroups'
-              - 'waf-regional:GetRuleGroup'
-              - 'waf-regional:ListActivatedRulesInRuleGroup'
-            Effect: Allow
-            Resource: '*'
-          - Sid: NETWORKFIREWALL
-            Effect: Allow
-            Action:
-              - 'network-firewall:DescribeLoggingConfiguration'
-            Resource: '*'
-          - Sid: WAFV2
-            Effect: Allow
-            Action:
-              - 'wafv2:ListWebACLs'
-              - 'wafv2:ListRegexPatternSets'
-              - 'wafv2:ListIPSets'
-            Resource:
-              - '*'
-          - Sid: STATES
-            Action:
-              - 'states:ListTagsForResource'
-            Effect: Allow
-            Resource: '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSDecryptPolicy:
@@ -239,3 +138,5 @@ Outputs:
   TemplateVersion:
     Description: Template version
     Value: '1.1'
+
+

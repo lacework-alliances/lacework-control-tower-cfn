@@ -49,17 +49,12 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/SecurityAudit'
   LaceworkCWSPolicy:
-    Type: 'AWS::IAM::Policy'
+    Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      PolicyName: LaceworkCWSPolicy
+      ManagedPolicyName: !Sub "LaceworkCWSPolicy-${AWS::AccountId}"
       PolicyDocument:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Statement:
-          - Sid: GetAccountAlias
-            Action:
-              - 'iam:ListAccountAliases'
-            Effect: Allow
-            Resource: '*'
           - Sid: Debug
             Action:
               - 'cloudtrail:DescribeTrails'
@@ -72,78 +67,78 @@ Resources:
               - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
-          - Sid: EfsPolicies
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: GetBucketPublicAccessBlock
             Action:
-              - 'elasticfilesystem:DescribeFileSystemPolicy'
-              - 'elasticfilesystem:DescribeLifecycleConfiguration'
-              - 'elasticfilesystem:DescribeAccessPoints'
-              - 'elasticfilesystem:DescribeAccountPreferences'
-              - 'elasticfilesystem:DescribeBackupPolicy'
-              - 'elasticfilesystem:DescribeReplicationConfigurations'
+              - 's3:GetBucketPublicAccessBlock'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: EFS
+            Action:
               - 'elasticfilesystem:ListTagsForResource'
             Effect: Allow
-            Resource: '*'
-          - Sid: SagemakerPolicies
+            Resource:
+              - '*'
+          - Sid: EMR
             Action:
-              - 'sagemaker:GetLineageGroupPolicy'
-              - 'sagemaker:GetModelPackageGroupPolicy'
+              - 'elasticmapreduce:ListBootstrapActions'
+              - 'elasticmapreduce:ListInstanceFleets'
+              - 'elasticmapreduce:ListInstanceGroups'
             Effect: Allow
-            Resource: '*'
-          - Sid: IdentityStoreReadOnly
+            Resource:
+              - '*'
+          - Sid: SAGEMAKER
+            Action:
+              - 'sagemaker:GetModelPackageGroupPolicy'
+              - 'sagemaker:GetLineageGroupPolicy'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: IDENTITYSTORE
             Action:
               - 'identitystore:DescribeGroup'
               - 'identitystore:DescribeGroupMembership'
               - 'identitystore:DescribeUser'
-              - 'identitystore:ListGroupMemberships'
-              - 'identitystore:ListGroupMembershipsForMember'
-              - 'identitystore:ListGroups'
-              - 'identitystore:ListUsers'
             Effect: Allow
-            Resource: '*'
-          - Sid: SSOReadOnly
+            Resource:
+              - '*'
+          - Sid: SSO
             Action:
               - 'sso:DescribeAccountAssignmentDeletionStatus'
               - 'sso:DescribeInstanceAccessControlAttributeConfiguration'
               - 'sso:GetInlinePolicyForPermissionSet'
             Effect: Allow
-            Resource: '*'
+            Resource:
+              - '*'
           - Sid: APIGATEWAY
             Action:
               - 'apigateway:GET'
             Effect: Allow
-            Resource: '*'
-          - Sid: APIGATEWAYV2
-            Action:
-              - 'apigatewayv2:GET'
-            Effect: Allow
-            Resource: '*'
-          - Sid: SNS
-            Action:
-              - 'sns:GetDataProtectionPolicy'
-              - 'sns:ListPlatformApplications'
-              - 'sns:GetSubscriptionAttributes'
-            Effect: Allow
-            Resource: '*'
-          - Sid: GLUE
-            Action:
-              - 'glue:ListWorkflows'
-              - 'glue:BatchGetWorkflows'
-              - 'glue:GetTags'
-              - 'glue:GetTables'
-              - 'glue:GetTable'
-            Effect: Allow
-            Resource: '*'
+            Resource:
+              - 'arn:aws:apigateway:*::/apikeys'
+              - 'arn:aws:apigateway:*::/apikeys/*'
+              - 'arn:aws:apigateway:*::/domainnames/*'
+              - 'arn:aws:apigateway:*::/domainnames/*/basepathmappings'
+              - 'arn:aws:apigateway:*::/domainnames/*/basepathmappings/*'
+              - 'arn:aws:apigateway:*::/usageplans'
+              - 'arn:aws:apigateway:*::/usageplans/*'
+              - 'arn:aws:apigateway:*::/sdktypes'
+              - 'arn:aws:apigateway:*::/sdktypes/*'
           - Sid: GLACIER
             Action:
               - 'glacier:ListTagsForVault'
             Effect: Allow
-            Resource: '*'
-          - Sid: CODEBUILD
-            Action:
-              - 'codebuild:ListBuilds'
-              - 'codebuild:BatchGetBuilds'
-            Effect: Allow
-            Resource: '*'
+            Resource:
+              - '*'
           - Sid: WAFREGIONAL
             Action:
               - 'waf-regional:ListRules'
@@ -152,24 +147,796 @@ Resources:
               - 'waf-regional:GetRuleGroup'
               - 'waf-regional:ListActivatedRulesInRuleGroup'
             Effect: Allow
-            Resource: '*'
-          - Sid: NETWORKFIREWALL
-            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: GLUE
             Action:
-              - 'network-firewall:DescribeLoggingConfiguration'
-            Resource: '*'
-          - Sid: WAFV2
+              - 'glue:ListWorkflows'
+              - 'glue:BatchGetWorkflows'
+              - 'glue:GetWorkflow'
             Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CODEBUILD
             Action:
-              - 'wafv2:ListWebACLs'
-              - 'wafv2:ListRegexPatternSets'
-              - 'wafv2:ListIPSets'
+              - 'codebuild:ListBuilds'
+              - 'codebuild:BatchGetBuilds'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SNS
+            Action:
+              - 'sns:GetDataProtectionPolicy'
+              - 'sns:ListPlatformApplications'
+              - 'sns:GetSubscriptionAttributes'
+            Effect: Allow
             Resource:
               - '*'
           - Sid: STATES
             Action:
               - 'states:ListTagsForResource'
             Effect: Allow
-            Resource: '*'
+            Resource:
+              - '*'
+          - Sid: SES
+            Action:
+              - 'ses:ListContactLists'
+              - 'ses:GetContactList'
+              - 'ses:ListContacts'
+              - 'ses:GetContact'
+              - 'ses:ListCustomVerificationEmailTemplates'
+              - 'ses:GetCustomVerificationEmailTemplate'
+              - 'ses:GetDedicatedIpPool'
+              - 'ses:ListDeliverabilityTestReports'
+              - 'ses:GetDeliverabilityTestReport'
+              - 'ses:ListEmailIdentities'
+              - 'ses:GetEmailIdentity'
+              - 'ses:GetEmailIdentityPolicies'
+              - 'ses:ListEmailTemplates'
+              - 'ses:GetEmailTemplate'
+              - 'ses:ListImportJobs'
+              - 'ses:GetImportJob'
+              - 'ses:ListRecommendations'
+              - 'ses:ListSuppressedDestinations'
+              - 'ses:GetSuppressedDestination'
+              - 'ses:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: BACKUP
+            Action:
+              - 'backup:ListBackupJobs'
+              - 'backup:DescribeBackupJob'
+              - 'backup:ListBackupPlanTemplates'
+              - 'backup:GetBackupPlanFromTemplate'
+              - 'backup:ListBackupPlans'
+              - 'backup:GetBackupPlan'
+              - 'backup:ListBackupPlanVersions'
+              - 'backup:ListBackupSelections'
+              - 'backup:GetBackupSelection'
+              - 'backup:DescribeBackupVault'
+              - 'backup:ListRecoveryPointsByBackupVault'
+              - 'backup:DescribeRecoveryPoint'
+              - 'backup:GetRecoveryPointRestoreMetadata'
+              - 'backup:ListCopyJobs'
+              - 'backup:ListFrameworks'
+              - 'backup:DescribeFramework'
+              - 'backup:ListLegalHolds'
+              - 'backup:GetLegalHold'
+              - 'backup:ListRecoveryPointsByLegalHold'
+              - 'backup:ListProtectedResources'
+              - 'backup:DescribeProtectedResource'
+              - 'backup:ListRecoveryPointsByResource'
+              - 'backup:ListReportPlans'
+              - 'backup:ListRestoreJobs'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: COGNITOIDP
+            Action:
+              - 'cognito-idp:GetSigningCertificate'
+              - 'cognito-idp:GetCSVHeader'
+              - 'cognito-idp:GetUserPoolMfaConfig'
+              - 'cognito-idp:GetUICustomization'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: COMPUTEOPTIMIZER
+            Action:
+              - 'compute-optimizer:DescribeRecommendationExportJobs'
+              - 'compute-optimizer:GetAutoScalingGroupRecommendations'
+              - 'compute-optimizer:GetEffectiveRecommendationPreferences'
+              - 'compute-optimizer:GetEBSVolumeRecommendations'
+              - 'compute-optimizer:GetEC2InstanceRecommendations'
+              - 'compute-optimizer:GetEnrollmentStatus'
+              - 'compute-optimizer:GetLambdaFunctionRecommendations'
+              - 'compute-optimizer:GetRecommendationPreferences'
+              - 'compute-optimizer:GetRecommendationSummaries'
+              - 'compute-optimizer:GetEcsServiceRecommendations'
+              - 'compute-optimizer:GetLicenseRecommendations'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: KINESISANALYTICS
+            Action:
+              - 'kinesisanalytics:ListApplicationSnapshots'
+              - 'kinesisanalytics:ListApplicationVersions'
+              - 'kinesisanalytics:DescribeApplicationVersion'
+              - 'kinesisanalytics:DescribeApplication'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: KINESISVIDEO
+            Action:
+              - 'kinesisvideo:GetSignalingChannelEndpoint'
+              - 'kinesisvideo:GetDataEndpoint'
+              - 'kinesisvideo:DescribeImageGenerationConfiguration'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: AMP
+            Action:
+              - 'aps:ListScrapers'
+              - 'aps:DescribeScraper'
+              - 'aps:ListWorkspaces'
+              - 'aps:DescribeAlertManagerDefinition'
+              - 'aps:DescribeLoggingConfiguration'
+              - 'aps:DescribeWorkspace'
+              - 'aps:ListRuleGroupsNamespaces'
+              - 'aps:DescribeRuleGroupsNamespace'
+              - 'aps:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20251:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20251"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: APPSTREAM
+            Action:
+              - 'appstream:Describe*'
+              - 'appstream:List*'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: PERSONALIZE
+            Action:
+              - 'personalize:Describe*'
+              - 'personalize:List*'
+              - 'personalize:GetSolutionMetrics'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CODEARTIFACT
+            Action:
+              - 'codeartifact:ListDomains'
+              - 'codeartifact:DescribeDomain'
+              - 'codeartifact:DescribeRepository'
+              - 'codeartifact:ListPackages'
+              - 'codeartifact:GetRepositoryEndpoint'
+              - 'codeartifact:DescribePackage'
+              - 'codeartifact:ListPackageVersions'
+              - 'codeartifact:DescribePackageVersion'
+              - 'codeartifact:GetPackageVersionReadme'
+              - 'codeartifact:ListPackageVersionDependencies'
+              - 'codeartifact:ListPackageVersionAssets'
+              - 'codeartifact:GetPackageVersionAsset'
+              - 'codeartifact:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: FIS
+            Action:
+              - 'fis:ListActions'
+              - 'fis:GetAction'
+              - 'fis:ListExperimentTemplates'
+              - 'fis:GetExperimentTemplate'
+              - 'fis:ListTargetAccountConfigurations'
+              - 'fis:ListExperiments'
+              - 'fis:GetExperiment'
+              - 'fis:ListExperimentResolvedTargets'
+              - 'fis:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEMORYDB
+            Action:
+              - 'memorydb:DescribeMultiRegionClusters'
+              - 'memorydb:DescribeSnapshots'
+              - 'memorydb:DescribeSubnetGroups'
+              - 'memorydb:DescribeParameterGroups'
+              - 'memorydb:DescribeParameters'
+              - 'memorydb:DescribeUsers'
+              - 'memorydb:DescribeACLs'
+              - 'memorydb:DescribeServiceUpdates'
+              - 'memorydb:DescribeEngineVersions'
+              - 'memorydb:DescribeReservedNodes'
+              - 'memorydb:DescribeReservedNodesOfferings'
+              - 'memorydb:ListTags'
+              - 'memorydb:ListAllowedNodeTypeUpdates'
+              - 'memorydb:ListAllowedMultiRegionClusterUpdates'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: QBUSINESS
+            Action:
+              - 'qbusiness:GetApplication'
+              - 'qbusiness:GetChatControlsConfiguration'
+              - 'qbusiness:GetPolicy'
+              - 'qbusiness:ListAttachments'
+              - 'qbusiness:ListConversations'
+              - 'qbusiness:ListMessages'
+              - 'qbusiness:ListDataAccessors'
+              - 'qbusiness:GetDataAccessor'
+              - 'qbusiness:GetIndex'
+              - 'qbusiness:GetDataSource'
+              - 'qbusiness:GetPlugin'
+              - 'qbusiness:ListPluginActions'
+              - 'qbusiness:GetRetriever'
+              - 'qbusiness:GetWebExperience'
+              - 'qbusiness:ListPluginTypeMetadata'
+              - 'qbusiness:ListPluginTypeActions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: QAPPS
+            Action:
+              - 'qapps:DescribeQAppPermissions'
+              - 'qapps:GetLibraryItem'
+              - 'qapps:GetQApp'
+              - 'qapps:GetQAppSession'
+              - 'qapps:GetQAppSessionMetadata'
+              - 'qapps:ListCategories'
+              - 'qapps:ListLibraryItems'
+              - 'qapps:ListQAppSessionData'
+              - 'qapps:ListQApps'
+              - 'qapps:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: QCONNECT
+            Action:
+              - 'wisdom:GetAIAgent'
+              - 'wisdom:GetAIGuardrail'
+              - 'wisdom:GetAIPrompt'
+              - 'wisdom:GetContent'
+              - 'wisdom:GetImportJob'
+              - 'wisdom:GetKnowledgeBase'
+              - 'wisdom:GetMessageTemplate'
+              - 'wisdom:GetQuickResponse'
+              - 'wisdom:ListAIAgentVersions'
+              - 'wisdom:ListAIAgents'
+              - 'wisdom:ListAIGuardrailVersions'
+              - 'wisdom:ListAIGuardrails'
+              - 'wisdom:ListAIPromptVersions'
+              - 'wisdom:ListAIPrompts'
+              - 'wisdom:ListAssistantAssociations'
+              - 'wisdom:ListAssistants'
+              - 'wisdom:ListContentAssociations'
+              - 'wisdom:ListContents'
+              - 'wisdom:ListImportJobs'
+              - 'wisdom:ListKnowledgeBases'
+              - 'wisdom:ListMessageTemplateVersions'
+              - 'wisdom:ListMessageTemplates'
+              - 'wisdom:ListQuickResponses'
+              - 'wisdom:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: RESOURCEGROUPS
+            Action:
+              - 'resource-groups:ListGroups'
+              - 'resource-groups:GetGroupQuery'
+              - 'resource-groups:GetGroupConfiguration'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SERVICECATALOGAPPREGISTRY
+            Action:
+              - 'servicecatalog:GetApplication'
+              - 'servicecatalog:ListApplications'
+              - 'servicecatalog:GetAssociatedResource'
+              - 'servicecatalog:ListAssociatedResources'
+              - 'servicecatalog:ListAssociatedAttributeGroups'
+              - 'servicecatalog:GetAttributeGroup'
+              - 'servicecatalog:ListAttributeGroups'
+              - 'servicecatalog:ListTagsForResource'
+              - 'servicecatalog:ListAttributeGroupsForApplication'
+              - 'servicecatalog:GetConfiguration'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: OAM
+            Action:
+              - 'oam:GetLink'
+              - 'oam:GetSink'
+              - 'oam:GetSinkPolicy'
+              - 'oam:ListAttachedLinks'
+              - 'oam:ListLinks'
+              - 'oam:ListSinks'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CLOUDDIRECTORY
+            Action:
+              - 'clouddirectory:GetAppliedSchemaVersion'
+              - 'clouddirectory:GetDirectory'
+              - 'clouddirectory:GetFacet'
+              - 'clouddirectory:GetLinkAttributes'
+              - 'clouddirectory:GetObjectAttributes'
+              - 'clouddirectory:GetObjectInformation'
+              - 'clouddirectory:GetSchemaAsJson'
+              - 'clouddirectory:GetTypedLinkFacetInformation'
+              - 'clouddirectory:ListAppliedSchemaArns'
+              - 'clouddirectory:ListAttachedIndices'
+              - 'clouddirectory:ListDevelopmentSchemaArns'
+              - 'clouddirectory:ListFacetAttributes'
+              - 'clouddirectory:ListFacetNames'
+              - 'clouddirectory:ListIncomingTypedLinks'
+              - 'clouddirectory:ListIndex'
+              - 'clouddirectory:ListManagedSchemaArns'
+              - 'clouddirectory:ListObjectAttributes'
+              - 'clouddirectory:ListObjectChildren'
+              - 'clouddirectory:ListObjectParentPaths'
+              - 'clouddirectory:ListObjectParents'
+              - 'clouddirectory:ListObjectPolicies'
+              - 'clouddirectory:ListOutgoingTypedLinks'
+              - 'clouddirectory:ListPolicyAttachments'
+              - 'clouddirectory:ListPublishedSchemaArns'
+              - 'clouddirectory:ListTagsForResource'
+              - 'clouddirectory:ListTypedLinkFacetAttributes'
+              - 'clouddirectory:ListTypedLinkFacetNames'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: COSTOPTIMIZATIONHUB
+            Action:
+              - 'cost-optimization-hub:GetPreferences'
+              - 'cost-optimization-hub:GetRecommendation'
+              - 'cost-optimization-hub:ListEnrollmentStatuses'
+              - 'cost-optimization-hub:ListRecommendationSummaries'
+              - 'cost-optimization-hub:ListRecommendations'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: BUDGETS
+            Action:
+              - 'budgets:DescribeBudgetAction'
+              - 'budgets:DescribeBudgetActionHistories'
+              - 'budgets:DescribeBudgetActionsForAccount'
+              - 'budgets:DescribeBudgetActionsForBudget'
+              - 'budgets:ListTagsForResource'
+              - 'budgets:ViewBudget'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: BILLINGCONSOLE
+            Action:
+              - 'aws-portal:GetConsoleActionSetEnforced'
+              - 'aws-portal:ViewAccount'
+              - 'aws-portal:ViewBilling'
+              - 'aws-portal:ViewPaymentMethods'
+              - 'aws-portal:ViewUsage'
+            Effect: Allow
+            Resource:
+              - '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20252:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20252"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FREETIER
+            Action:
+              - 'freetier:GetFreeTierUsage'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: ACMPCA
+            Action:
+              - 'acm-pca:GetCertificateAuthorityCertificate'
+              - 'acm-pca:GetCertificateAuthorityCsr'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: APPCONFIG
+            Action:
+              - 'appconfig:GetConfigurationProfile'
+              - 'appconfig:GetDeploymentStrategy'
+              - 'appconfig:GetExtension'
+              - 'appconfig:GetExtensionAssociation'
+              - 'appconfig:GetHostedConfigurationVersion'
+              - 'appconfig:ListApplications'
+              - 'appconfig:ListConfigurationProfiles'
+              - 'appconfig:ListDeployments'
+              - 'appconfig:ListDeploymentStrategies'
+              - 'appconfig:ListEnvironments'
+              - 'appconfig:ListExtensionAssociations'
+              - 'appconfig:ListExtensions'
+              - 'appconfig:ListHostedConfigurationVersions'
+              - 'appconfig:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: APPFLOW
+            Action:
+              - 'appflow:DescribeConnectorEntity'
+              - 'appflow:DescribeConnectorProfiles'
+              - 'appflow:DescribeConnectors'
+              - 'appflow:DescribeFlow'
+              - 'appflow:DescribeFlowExecutionRecords'
+              - 'appflow:ListConnectorEntities'
+              - 'appflow:ListConnectors'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: DYNAMODB
+            Action:
+              - 'dynamodb:GetResourcePolicy'
+              - 'dynamodb:DescribeContributorInsights'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: EBS
+            Action:
+              - 'ebs:GetSnapshotBlock'
+              - 'ebs:ListSnapshotBlocks'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: LAKEFORMATION
+            Action:
+              - 'lakeformation:DescribeLakeFormationIdentityCenterConfiguration'
+              - 'lakeformation:GetDataLakePrincipal'
+              - 'lakeformation:GetDataLakeSettings'
+              - 'lakeformation:GetEffectivePermissionsForPath'
+              - 'lakeformation:GetTableObjects'
+              - 'lakeformation:ListDataCellsFilter'
+              - 'lakeformation:ListPermissions'
+              - 'lakeformation:ListResources'
+              - 'lakeformation:ListTableStorageOptimizers'
+              - 'lakeformation:ListTransactions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: LAMBDA
+            Action:
+              - 'lambda:GetFunction'
+              - 'lambda:GetFunctionCodeSigningConfig'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SCHEDULER
+            Action:
+              - 'scheduler:GetSchedule'
+              - 'scheduler:GetScheduleGroup'
+              - 'scheduler:ListScheduleGroups'
+              - 'scheduler:ListSchedules'
+              - 'scheduler:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SCHEMAS
+            Action:
+              - 'schemas:GetCodeBindingSource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: DATASYNC
+            Action:
+              - 'datasync:DescribeTaskExecution'
+              - 'datasync:DescribeLocationEfs'
+              - 'datasync:ListAgents'
+              - 'datasync:ListLocations'
+              - 'datasync:ListTaskExecutions'
+              - 'datasync:ListStorageSystems'
+              - 'datasync:DescribeLocationSmb'
+              - 'datasync:DescribeAgent'
+              - 'datasync:DescribeLocationFsxWindows'
+              - 'datasync:DescribeTask'
+              - 'datasync:DescribeLocationS3'
+              - 'datasync:DescribeDiscoveryJob'
+              - 'datasync:DescribeLocationObjectStorage'
+              - 'datasync:DescribeStorageSystem'
+              - 'datasync:DescribeLocationAzureBlob'
+              - 'datasync:ListTagsForResource'
+              - 'datasync:ListTasks'
+              - 'datasync:DescribeLocationHdfs'
+              - 'datasync:DescribeLocationFsxLustre'
+              - 'datasync:ListDiscoveryJobs'
+              - 'datasync:DescribeLocationNfs'
+            Effect: Allow
+            Resource:
+              - '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20253:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20253"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: IOT
+            Action:
+              - 'iot:GetCommand'
+              - 'iot:GetCommandExecution'
+              - 'iot:GetEffectivePolicies'
+              - 'iot:GetIndexingConfiguration'
+              - 'iot:GetJobDocument'
+              - 'iot:GetV2LoggingOptions'
+              - 'iot:GetOtaUpdate'
+              - 'iot:GetPackage'
+              - 'iot:GetPackageConfiguration'
+              - 'iot:GetPackageVersion'
+              - 'iot:GetRegistrationCode'
+              - 'iot:GetBehaviorModelTrainingSummaries'
+              - 'iot:GetThingConnectivityData'
+              - 'iot:GetTopicRule'
+              - 'iot:GetTopicRuleDestination'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: IOTEVENTS
+            Action:
+              - 'iotevents:DescribeAlarmModel'
+              - 'iotevents:ListAlarmModels'
+              - 'iotevents:ListTagsForResource'
+              - 'iotevents:ListAlarmModelVersions'
+              - 'iotevents:DescribeDetectorModel'
+              - 'iotevents:ListDetectorModels'
+              - 'iotevents:ListDetectorModelVersions'
+              - 'iotevents:DescribeInput'
+              - 'iotevents:DescribeLoggingOptions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGE
+            Action:
+              - 'mediapackage:ListChannels'
+              - 'mediapackage:ListHarvestJobs'
+              - 'mediapackage:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGEV2
+            Action:
+              - 'mediapackagev2:GetChannel'
+              - 'mediapackagev2:GetChannelPolicy'
+              - 'mediapackagev2:ListChannels'
+              - 'mediapackagev2:ListTagsForResource'
+              - 'mediapackagev2:GetChannelGroup'
+              - 'mediapackagev2:ListChannelGroups'
+              - 'mediapackagev2:ListHarvestJobs'
+              - 'mediapackagev2:GetOriginEndpoint'
+              - 'mediapackagev2:GetOriginEndpointPolicy'
+              - 'mediapackagev2:ListOriginEndpoints'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIAPACKAGEVOD
+            Action:
+              - 'mediapackage-vod:DescribeAsset'
+              - 'mediapackage-vod:ListAssets'
+              - 'mediapackage-vod:ListPackagingConfigurations'
+              - 'mediapackage-vod:ListPackagingGroups'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SUPPORT
+            Action:
+              - 'support:DescribeCases'
+              - 'support:DescribeCommunications'
+              - 'support:DescribeServices'
+              - 'support:DescribeSeverityLevels'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: IMAGEBUILDER
+            Action:
+              - 'imagebuilder:GetComponentPolicy'
+              - 'imagebuilder:ListComponents'
+              - 'imagebuilder:ListTagsForResource'
+              - 'imagebuilder:GetComponent'
+              - 'imagebuilder:ListComponentBuildVersions'
+              - 'imagebuilder:GetContainerRecipe'
+              - 'imagebuilder:GetContainerRecipePolicy'
+              - 'imagebuilder:ListContainerRecipes'
+              - 'imagebuilder:GetDistributionConfiguration'
+              - 'imagebuilder:ListDistributionConfigurations'
+              - 'imagebuilder:GetImagePolicy'
+              - 'imagebuilder:ListImages'
+              - 'imagebuilder:GetImage'
+              - 'imagebuilder:ListImageBuildVersions'
+              - 'imagebuilder:ListImagePackages'
+              - 'imagebuilder:GetImagePipeline'
+              - 'imagebuilder:ListImagePipelines'
+              - 'imagebuilder:GetImageRecipe'
+              - 'imagebuilder:GetImageRecipePolicy'
+              - 'imagebuilder:ListImageRecipes'
+              - 'imagebuilder:ListImageScanFindings'
+              - 'imagebuilder:ListImageScanFindingAggregations'
+              - 'imagebuilder:GetInfrastructureConfiguration'
+              - 'imagebuilder:ListInfrastructureConfigurations'
+              - 'imagebuilder:ListLifecycleExecutions'
+              - 'imagebuilder:ListLifecycleExecutionResources'
+              - 'imagebuilder:GetLifecyclePolicy'
+              - 'imagebuilder:ListLifecyclePolicies'
+              - 'imagebuilder:ListWorkflows'
+              - 'imagebuilder:GetWorkflow'
+              - 'imagebuilder:ListWorkflowBuildVersions'
+              - 'imagebuilder:ListWorkflowExecutions'
+              - 'imagebuilder:GetWorkflowStepExecution'
+              - 'imagebuilder:ListWorkflowStepExecutions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: DETECTIVE
+            Action:
+              - 'detective:BatchGetMembershipDatasources'
+              - 'detective:ListDatasourcePackages'
+              - 'detective:ListTagsForResource'
+              - 'detective:GetInvestigation'
+              - 'detective:ListIndicators'
+              - 'detective:ListInvestigations'
+              - 'detective:ListInvitations'
+              - 'detective:BatchGetGraphMemberDatasources'
+              - 'detective:ListOrganizationAdminAccounts'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: BATCH
+            Action:
+              - 'batch:DescribeJobs'
+              - 'batch:ListJobs'
+              - 'batch:ListTagsForResource'
+              - 'batch:DescribeJobQueues'
+              - 'batch:DescribeSchedulingPolicies'
+              - 'batch:ListSchedulingPolicies'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: NETWORKMANAGER
+            Action:
+              - 'networkmanager:GetConnectAttachment'
+              - 'networkmanager:GetSiteToSiteVpnAttachment'
+              - 'networkmanager:GetTransitGatewayRouteTableAttachment'
+              - 'networkmanager:GetVpcAttachment'
+              - 'networkmanager:ListAttachments'
+              - 'networkmanager:GetConnectPeer'
+              - 'networkmanager:ListConnectPeers'
+              - 'networkmanager:GetCoreNetwork'
+              - 'networkmanager:GetCoreNetworkChangeEvents'
+              - 'networkmanager:GetCoreNetworkChangeSet'
+              - 'networkmanager:GetCoreNetworkPolicy'
+              - 'networkmanager:GetNetworkRoutes'
+              - 'networkmanager:ListCoreNetworkPolicyVersions'
+              - 'networkmanager:ListCoreNetworks'
+              - 'networkmanager:GetConnectPeerAssociations'
+              - 'networkmanager:GetConnections'
+              - 'networkmanager:GetCustomerGatewayAssociations'
+              - 'networkmanager:GetDevices'
+              - 'networkmanager:GetLinkAssociations'
+              - 'networkmanager:GetLinks'
+              - 'networkmanager:GetNetworkResourceCounts'
+              - 'networkmanager:GetNetworkResourceRelationships'
+              - 'networkmanager:GetNetworkResources'
+              - 'networkmanager:GetNetworkTelemetry'
+              - 'networkmanager:GetResourcePolicy'
+              - 'networkmanager:GetSites'
+              - 'networkmanager:GetTransitGatewayConnectPeerAssociations'
+              - 'networkmanager:GetTransitGatewayRegistrations'
+              - 'networkmanager:GetTransitGatewayPeering'
+              - 'networkmanager:ListPeerings'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CODEPIPELINE
+            Action:
+              - 'codepipeline:ListActionExecutions'
+              - 'codepipeline:GetActionType'
+              - 'codepipeline:ListActionTypes'
+              - 'codepipeline:ListTagsForResource'
+              - 'codepipeline:ListPipelineExecutions'
+              - 'codepipeline:ListRuleExecutions'
+              - 'codepipeline:ListRuleTypes'
+              - 'codepipeline:ListWebhooks'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: GREENGRASS
+            Action:
+              - 'greengrass:GetBulkDeploymentStatus'
+              - 'greengrass:GetGroupCertificateAuthority'
+              - 'greengrass:GetConnectorDefinitionVersion'
+              - 'greengrass:GetCoreDefinitionVersion'
+              - 'greengrass:GetDeploymentStatus'
+              - 'greengrass:GetDeviceDefinitionVersion'
+              - 'greengrass:GetFunctionDefinitionVersion'
+              - 'greengrass:GetAssociatedRole'
+              - 'greengrass:GetGroupCertificateConfiguration'
+              - 'greengrass:GetGroupVersion'
+              - 'greengrass:GetLoggerDefinitionVersion'
+              - 'greengrass:GetResourceDefinitionVersion'
+              - 'greengrass:GetServiceRoleForAccount'
+              - 'greengrass:GetSubscriptionDefinitionVersion'
+              - 'greengrass:DescribeComponent'
+              - 'greengrass:GetComponent'
+              - 'greengrass:GetConnectivityInfo'
+              - 'greengrass:GetCoreDevice'
+              - 'greengrass:GetDeployment'
+              - 'greengrass:GetServiceRoleForAccount'
+            Effect: Allow
+            Resource:
+              - '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20254:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName:  !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20254"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: SSM
+            Action:
+              - 'ssm:GetConnectionStatus'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: EKS
+            Action:
+              - 'eks:DescribeAddon'
+              - 'eks:ListAddons'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: INSPECTOR2
+            Action:
+              - 'inspector2:BatchGetCodeSnippet'
+              - 'inspector2:ListCisScanResultsAggregatedByChecks'
+              - 'inspector2:ListCisScanResultsAggregatedByTargetResource'
+              - 'inspector2:ListCisScanConfigurations'
+              - 'inspector2:ListMembers'
+              - 'inspector2:BatchGetFindingDetails'
+              - 'inspector2:GetCisScanReport'
+              - 'inspector2:GetCisScanResultDetails'
+              - 'inspector2:ListCisScans'
+              - 'inspector2:GetEncryptionKey'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: WAF
+            Action:
+              - 'waf:GetRegexPatternSet'
+              - 'waf:GetPermissionPolicy'
+              - 'waf:ListIPSets'
+              - 'waf:GetIPSet'
+              - 'waf:GetRuleGroup'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: WAFV2
+            Action:
+              - 'wafv2:GetManagedRuleSet'
+              - 'wafv2:GetRegexPatternSet'
+              - 'wafv2:GetPermissionPolicy'
+              - 'wafv2:GetIPSet'
+              - 'wafv2:ListIPSets'
+              - 'wafv2:ListManagedRuleSets'
+              - 'wafv2:GetRuleGroup'
+            Effect: Allow
+            Resource:
+              - '*'
+    Roles:
+      - !Ref LaceworkCWSSACrossAccountAccessRole
+
+
