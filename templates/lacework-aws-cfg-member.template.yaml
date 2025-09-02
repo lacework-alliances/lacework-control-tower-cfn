@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Lacework AWS Config Security Audit Integration (Member Accounts)
 Parameters:
   ResourceNamePrefix:
-    Default: customerdemo
+    Default: laceworkalliances
     Description: >-
       Names of resources created by the stack will be prefixed with this value
       to ensure uniqueness.
@@ -14,7 +14,7 @@ Parameters:
       Invalid resource name prefix.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
   LaceworkAccountName:
-    Default: customerdemo
+    Default: laceworkalliances
     Description: >-
       Names of resources created by the stack will be prefixed with this value
       to ensure uniqueness.
@@ -936,7 +936,6 @@ Resources:
             Effect: Allow
             Resource:
               - '*'
-    Roles:
-      - !Ref LaceworkCWSSACrossAccountAccessRole
-
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
 
