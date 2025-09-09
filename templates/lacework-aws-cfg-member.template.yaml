@@ -37,7 +37,7 @@ Resources:
         - - !Ref ResourceNamePrefix
           - laceworkcwsrole-sa
       AssumeRolePolicyDocument:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Statement:
           - Action: 'sts:AssumeRole'
             Effect: Allow
@@ -100,6 +100,7 @@ Resources:
             Action:
               - 'sagemaker:GetModelPackageGroupPolicy'
               - 'sagemaker:GetLineageGroupPolicy'
+              - 'sagemaker:GetDeviceFleetReport'
             Effect: Allow
             Resource:
               - '*'
@@ -136,16 +137,12 @@ Resources:
           - Sid: GLACIER
             Action:
               - 'glacier:ListTagsForVault'
-            Effect: Allow
-            Resource:
-              - '*'
-          - Sid: WAFREGIONAL
-            Action:
-              - 'waf-regional:ListRules'
-              - 'waf-regional:GetRule'
-              - 'waf-regional:ListRuleGroups'
-              - 'waf-regional:GetRuleGroup'
-              - 'waf-regional:ListActivatedRulesInRuleGroup'
+              - 'glacier:GetJobOutput'
+              - 'glacier:ListJobs'
+              - 'glacier:ListMultipartUploads'
+              - 'glacier:ListParts'
+              - 'glacier:ListProvisionedCapacity'
+              - 'glacier:GetVaultNotifications'
             Effect: Allow
             Resource:
               - '*'
@@ -154,6 +151,7 @@ Resources:
               - 'glue:ListWorkflows'
               - 'glue:BatchGetWorkflows'
               - 'glue:GetWorkflow'
+              - 'glue:GetTables'
             Effect: Allow
             Resource:
               - '*'
@@ -161,6 +159,17 @@ Resources:
             Action:
               - 'codebuild:ListBuilds'
               - 'codebuild:BatchGetBuilds'
+              - 'codebuild:BatchGetBuildBatches'
+              - 'codebuild:ListBuildBatches'
+              - 'codebuild:DescribeCodeCoverages'
+              - 'codebuild:ListCuratedEnvironmentImages'
+              - 'codebuild:BatchGetReports'
+              - 'codebuild:ListReports'
+              - 'codebuild:BatchGetReportGroups'
+              - 'codebuild:ListReportGroups'
+              - 'codebuild:ListSharedProjects'
+              - 'codebuild:ListSharedReportGroups'
+              - 'codebuild:DescribeTestCases'
             Effect: Allow
             Resource:
               - '*'
@@ -433,6 +442,7 @@ Resources:
               - 'resource-groups:ListGroups'
               - 'resource-groups:GetGroupQuery'
               - 'resource-groups:GetGroupConfiguration'
+              - 'resource-groups:GetTags'
             Effect: Allow
             Resource:
               - '*'
@@ -515,6 +525,12 @@ Resources:
             Effect: Allow
             Resource:
               - '*'
+          - Sid: BILLING
+            Action:
+              - 'billing:GetBillingViewData'
+            Effect: Allow
+            Resource:
+              - '*'
           - Sid: BILLINGCONSOLE
             Action:
               - 'aws-portal:GetConsoleActionSetEnforced'
@@ -537,6 +553,36 @@ Resources:
           - Sid: FREETIER
             Action:
               - 'freetier:GetFreeTierUsage'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: WAFREGIONAL
+            Action:
+              - 'waf-regional:ListRules'
+              - 'waf-regional:GetRule'
+              - 'waf-regional:ListRuleGroups'
+              - 'waf-regional:GetRuleGroup'
+              - 'waf-regional:ListActivatedRulesInRuleGroup'
+              - 'waf-regional:GetByteMatchSet'
+              - 'waf-regional:GetPermissionPolicy'
+              - 'waf-regional:GetRateBasedRule'
+              - 'waf-regional:ListSizeConstraintSets'
+              - 'waf-regional:ListByteMatchSets'
+              - 'waf-regional:ListGeoMatchSets'
+              - 'waf-regional:GetLoggingConfiguration'
+              - 'waf-regional:GetSqlInjectionMatchSet'
+              - 'waf-regional:ListRateBasedRules'
+              - 'waf-regional:GetSizeConstraintSet'
+              - 'waf-regional:GetRegexMatchSet'
+              - 'waf-regional:GetGeoMatchSet'
+              - 'waf-regional:GetRegexPatternSet'
+              - 'waf-regional:ListRegexMatchSets'
+              - 'waf-regional:GetIPSet'
+              - 'waf-regional:ListSqlInjectionMatchSets'
+              - 'waf-regional:ListXssMatchSets'
+              - 'waf-regional:GetXssMatchSet'
+              - 'waf-regional:ListIpSets'
+              - 'waf-regional:ListRegexPatternSets'
             Effect: Allow
             Resource:
               - '*'
@@ -563,6 +609,7 @@ Resources:
               - 'appconfig:ListExtensions'
               - 'appconfig:ListHostedConfigurationVersions'
               - 'appconfig:ListTagsForResource'
+              - 'appconfig:GetDeployment'
             Effect: Allow
             Resource:
               - '*'
@@ -570,7 +617,7 @@ Resources:
             Action:
               - 'appflow:DescribeConnectorEntity'
               - 'appflow:DescribeConnectorProfiles'
-              - 'appflow:DescribeConnectors'
+              - 'appflow:DescribeConnector'
               - 'appflow:DescribeFlow'
               - 'appflow:DescribeFlowExecutionRecords'
               - 'appflow:ListConnectorEntities'
@@ -582,6 +629,7 @@ Resources:
             Action:
               - 'dynamodb:GetResourcePolicy'
               - 'dynamodb:DescribeContributorInsights'
+              - 'dynamodb:DescribeBackup'
             Effect: Allow
             Resource:
               - '*'
@@ -656,6 +704,51 @@ Resources:
             Effect: Allow
             Resource:
               - '*'
+          - Sid: RESILIENCEHUB
+            Action:
+              - 'resiliencehub:ListAppAssessments'
+              - 'resiliencehub:DescribeAppAssessment'
+              - 'resiliencehub:ListAlarmRecommendations'
+              - 'resiliencehub:ListAppAssessmentComplianceDrifts'
+              - 'resiliencehub:ListAppAssessmentResourceDrifts'
+              - 'resiliencehub:ListAppComponentCompliances'
+              - 'resiliencehub:ListAppComponentRecommendations'
+              - 'resiliencehub:ListSopRecommendations'
+              - 'resiliencehub:ListTestRecommendations'
+              - 'resiliencehub:ListApps'
+              - 'resiliencehub:DescribeApp'
+              - 'resiliencehub:DescribeDraftAppVersionResourcesImportStatus'
+              - 'resiliencehub:DescribeResourceGroupingRecommendationTask'
+              - 'resiliencehub:ListAppVersions'
+              - 'resiliencehub:DescribeAppVersion'
+              - 'resiliencehub:DescribeAppVersionResource'
+              - 'resiliencehub:DescribeAppVersionResourcesResolutionStatus'
+              - 'resiliencehub:DescribeAppVersionTemplate'
+              - 'resiliencehub:ListAppInputSources'
+              - 'resiliencehub:ListAppVersionAppComponents'
+              - 'resiliencehub:ListAppVersionResourceMappings'
+              - 'resiliencehub:ListAppVersionResources'
+              - 'resiliencehub:ListUnsupportedAppVersionResources'
+              - 'resiliencehub:ListRecommendationTemplates'
+              - 'resiliencehub:ListResiliencyPolicies'
+              - 'resiliencehub:ListResourceGroupingRecommendations'
+              - 'resiliencehub:ListTagsForResource'
+              - 'resiliencehub:ListSuggestedResiliencyPolicies'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: STEPFUNCTIONS
+            Action:
+              - 'states:GetActivityTask'
+              - 'states:ListActivities'
+              - 'states:DescribeExecution'
+              - 'states:GetExecutionHistory'
+              - 'states:ListExecutions'
+              - 'states:DescribeMapRun'
+              - 'states:ListMapRuns'
+            Effect: Allow
+            Resource:
+              - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSAuditPolicy20253:
@@ -663,7 +756,7 @@ Resources:
     Properties:
       ManagedPolicyName: !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20253"
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: IOT
             Action:
@@ -789,7 +882,7 @@ Resources:
               - 'detective:ListInvestigations'
               - 'detective:ListInvitations'
               - 'detective:BatchGetGraphMemberDatasources'
-              - 'detective:ListOrganizationAdminAccounts'
+              - 'detective:ListOrganizationAdminAccount'
             Effect: Allow
             Resource:
               - '*'
@@ -884,11 +977,25 @@ Resources:
     Properties:
       ManagedPolicyName:  !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20254"
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: SSM
             Action:
               - 'ssm:GetConnectionStatus'
+              - 'ssm:ListCommandInvocations'
+              - 'ssm:GetDocument'
+              - 'ssm:GetInventory'
+              - 'ssm:GetMaintenanceWindowExecutionTask'
+              - 'ssm:GetMaintenanceWindowTask'
+              - 'ssm:GetOpsItem'
+              - 'ssm:ListOpsItemEvents'
+              - 'ssm:ListOpsItemRelatedItems'
+              - 'ssm:GetOpsMetadata'
+              - 'ssm:GetParameter'
+              - 'ssm:GetParameterHistory'
+              - 'ssm:GetPatchBaseline'
+              - 'ssm:GetPatchBaselineForPatchGroup'
+              - 'ssm:GetResourcePolicies'
             Effect: Allow
             Resource:
               - '*'
@@ -921,6 +1028,28 @@ Resources:
               - 'waf:ListIPSets'
               - 'waf:GetIPSet'
               - 'waf:GetRuleGroup'
+              - 'waf:ListActivatedRulesInRuleGroup'
+              - 'waf:GetByteMatchSet'
+              - 'waf:ListByteMatchSets'
+              - 'waf:GetGeoMatchSet'
+              - 'waf:ListGeoMatchSets'
+              - 'waf:GetLoggingConfiguration'
+              - 'waf:ListLoggingConfigurations'
+              - 'waf:GetRateBasedRule'
+              - 'waf:GetRateBasedRuleManagedKeys'
+              - 'waf:ListRateBasedRules'
+              - 'waf:GetRegexMatchSet'
+              - 'waf:ListRegexMatchSets'
+              - 'waf:ListRegexPatternSets'
+              - 'waf:GetRule'
+              - 'waf:ListRules'
+              - 'waf:ListRuleGroups'
+              - 'waf:GetSizeConstraintSet'
+              - 'waf:ListSizeConstraintSets'
+              - 'waf:GetSqlInjectionMatchSet'
+              - 'waf:ListSqlInjectionMatchSets'
+              - 'waf:GetXssMatchSet'
+              - 'waf:ListXssMatchSets'
             Effect: Allow
             Resource:
               - '*'
@@ -933,6 +1062,188 @@ Resources:
               - 'wafv2:ListIPSets'
               - 'wafv2:ListManagedRuleSets'
               - 'wafv2:GetRuleGroup'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: APPRUNNER
+            Action:
+              - 'apprunner:ListServicesForAutoScalingConfiguration'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: APPSYNC
+            Action:
+              - 'appsync:GetApiAssociation'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: ATHENA
+            Action:
+              - 'athena:GetCalculationExecution'
+              - 'athena:GetCalculationExecutionCode'
+              - 'athena:GetCalculationExecutionStatus'
+              - 'athena:GetDataCatalog'
+              - 'athena:GetNamedQuery'
+              - 'athena:GetPreparedStatement'
+              - 'athena:GetQueryExecution'
+              - 'athena:GetQueryResults'
+              - 'athena:GetQueryRuntimeStatistics'
+              - 'athena:GetSession'
+              - 'athena:GetSessionStatus'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CE
+            Action:
+              - 'ce:GetCommitmentPurchaseAnalysis'
+              - 'ce:ListCommitmentPurchaseAnalyses'
+              - 'ce:GetAnomalyMonitors'
+              - 'ce:ListTagsForResource'
+              - 'ce:GetAnomalySubscriptions'
+              - 'ce:ListCostAllocationTagBackfillHistory'
+              - 'ce:ListCostAllocationTags'
+              - 'ce:DescribeCostCategoryDefinition'
+              - 'ce:ListCostCategoryDefinitions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: CLOUDFORMATION
+            Action:
+              - 'cloudformation:DescribeAccountLimits'
+              - 'cloudformation:DescribeChangeSet'
+              - 'cloudformation:ListChangeSets'
+              - 'cloudformation:DescribeChangeSetHooks'
+              - 'cloudformation:ListExports'
+              - 'cloudformation:ListImports'
+              - 'cloudformation:DescribePublisher'
+              - 'cloudformation:DetectStackDrift'
+              - 'cloudformation:GetTemplateSummary'
+              - 'cloudformation:DetectStackSetDrift'
+              - 'cloudformation:DescribeType'
+              - 'cloudformation:ListTypes'
+              - 'cloudformation:DescribeTypeRegistration'
+              - 'cloudformation:ListTypeRegistrations'
+              - 'cloudformation:ListTypeVersions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: ELASTICBEANSTALK
+            Action:
+              - 'elasticbeanstalk:ListAvailableSolutionStacks'
+              - 'elasticbeanstalk:RetrieveEnvironmentInfo'
+              - 'elasticbeanstalk:ListPlatformBranches'
+              - 'elasticbeanstalk:ListPlatformVersions'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: MEDIATAILOR
+            Action:
+              - 'mediatailor:ListAlerts'
+              - 'mediatailor:DescribeChannel'
+              - 'mediatailor:DescribeProgram'
+              - 'mediatailor:GetChannelPolicy'
+              - 'mediatailor:GetChannelSchedule'
+              - 'mediatailor:ListChannels'
+              - 'mediatailor:DescribeLiveSource'
+              - 'mediatailor:ListLiveSources'
+              - 'mediatailor:GetPlaybackConfiguration'
+              - 'mediatailor:ListPlaybackConfigurations'
+              - 'mediatailor:GetPrefetchSchedule'
+              - 'mediatailor:ListPrefetchSchedules'
+              - 'mediatailor:DescribeSourceLocation'
+              - 'mediatailor:ListSourceLocations'
+              - 'mediatailor:DescribeVodSource'
+              - 'mediatailor:ListVodSources'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: NETWORKFIREWALL
+            Action:
+              - 'network-firewall:ListTagsForResource'
+              - 'network-firewall:DescribeRuleGroupMetadata'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: RESOURCEEXPLORER2
+            Action:
+              - 'resource-explorer-2:ListIndexes'
+              - 'resource-explorer-2:ListManagedViews'
+              - 'resource-explorer-2:GetManagedView'
+              - 'resource-explorer-2:ListSupportedResourceTypes'
+              - 'resource-explorer-2:ListViews'
+              - 'resource-explorer-2:GetView'
+              - 'resource-explorer-2:Search'
+              - 'resource-explorer-2:GetAccountLevelServiceConfiguration'
+              - 'resource-explorer-2:GetDefaultView'
+              - 'resource-explorer-2:GetIndex'
+              - 'resource-explorer-2:ListTagsForResource'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: ROUTE53DOMAINS
+            Action:
+              - 'route53domains:ViewBilling'
+              - 'route53domains:CheckDomainAvailability'
+              - 'route53domains:CheckDomainTransferability'
+              - 'route53domains:ListPrices'
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SERVICEDISCOVERY
+            Action:
+              - 'servicediscovery:GetInstance'
+              - 'servicediscovery:ListInstances'
+              - 'servicediscovery:GetNamespace'
+              - 'servicediscovery:ListNamespaces'
+              - 'servicediscovery:ListTagsForResource'
+              - 'servicediscovery:GetOperation'
+              - 'servicediscovery:ListOperations'
+              - 'servicediscovery:GetService'
+              - 'servicediscovery:GetServiceAttributes'
+              - 'servicediscovery:ListServices'
+            Effect: Allow
+            Resource:
+              - '*'
+      Roles:
+        - !Ref LaceworkCWSSACrossAccountAccessRole
+  LaceworkCWSAuditPolicy20255:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName:  !Sub "LaceworkCWSAuditPolicy-${AWS::AccountId}-20255"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: FORECAST
+            Action:
+              - 'forecast:DescribeDataset'
+              - 'forecast:GetAccuracyMetrics'
+              - 'forecast:DescribeExplainability'
+              - 'forecast:ListForecastExportJobs'
+              - 'forecast:ListForecasts'
+              - 'forecast:DescribeForecast'
+              - 'forecast:DescribeMonitor'
+              - 'forecast:ListMonitorEvaluations'
+              - 'forecast:DescribePredictor'
+              - 'forecast:ListWhatIfForecasts'
+              - 'forecast:DescribeDatasetImportJob'
+              - 'forecast:ListDatasetGroups'
+              - 'forecast:ListPredictorBacktestExportJobs'
+              - 'forecast:DescribeExplainabilityExport'
+              - 'forecast:ListMonitors'
+              - 'forecast:DescribePredictorBacktestExportJob'
+              - 'forecast:DescribeDatasetGroup'
+              - 'forecast:ListWhatIfAnalyses'
+              - 'forecast:DescribeWhatIfForecastExport'
+              - 'forecast:DescribeAutoPredictor'
+              - 'forecast:ListExplainabilities'
+              - 'forecast:DescribeForecastExportJob'
+              - 'forecast:DescribeWhatIfForecast'
+              - 'forecast:DescribeWhatIfAnalysis'
+              - 'forecast:ListDatasetImportJobs'
+              - 'forecast:ListExplainabilityExports'
+              - 'forecast:ListWhatIfForecastExports'
+              - 'forecast:ListTagsForResource'
+              - 'forecast:ListPredictors'
             Effect: Allow
             Resource:
               - '*'
