@@ -31,7 +31,6 @@ from honeycomb import send_honeycomb_event
 from lacework import get_account_from_url, get_access_token, add_lw_cloud_account_for_cfg, \
     lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, update_lw_cloud_account_in_orgs
 
-HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
@@ -93,7 +92,7 @@ def process_ct_lifecycle_event(account_id, account_name, event):
     lacework_url = os.environ['lacework_url']
     lacework_account_name = get_account_from_url(lacework_url)
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "add account",
+    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name, "add account",
                          lacework_sub_account_name)
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
