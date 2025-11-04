@@ -2,6 +2,7 @@ PROJECT = LaceworkCTAuth
 DIR_NAME = auth
 FUNCTION = $(PROJECT)3.3.0
 DIST_DIR ?= "$(BASE)"/lambda_functions/packages/$(DIR_NAME)
+APM_DATASET = $(DATASET)
 
 all: build
 
@@ -15,7 +16,7 @@ build: clean
 	mkdir -p build
 	cp ../common/* build
 	buildid=$$(git describe --all --long | cut -d "/" -f 2); \
-	sed -e "s|\$$BUILD|$$buildid|g" -e "s|\$$DATASET|$(HONEY_DATASET)|g" auth.py > build/auth.py
+	sed -e "s|\$$BUILD|$$buildid|g" -e "s|\$$DATASET|$(APM_DATASET)|g" auth.py > build/auth.py
 	pip3 install -r requirements.txt -t build
 	cd build; zip -r $(DIST_DIR)/$(FUNCTION).zip . -x "*.DS_Store*" "*.git*" "build*" "Makefile"
 	rm -rf build

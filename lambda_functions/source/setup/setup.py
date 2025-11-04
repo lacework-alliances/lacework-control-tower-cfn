@@ -33,7 +33,6 @@ from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_
     get_lacework_environment_variables
 from util import error_exception
 
-HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
@@ -77,7 +76,7 @@ def create(event, context):
     lacework_account_name = get_account_from_url(lacework_url)
     lacework_sub_account_name = os.environ['lacework_sub_account_name']
     lacework_api_credentials = os.environ['lacework_api_credentials']
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "create started",
+    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name, "create started",
                          lacework_sub_account_name, get_lacework_environment_variables())
 
     if not lacework_sub_account_name:
@@ -125,7 +124,7 @@ def create(event, context):
         send_cfn_fail(event, context, "Setup failed {}.".format(setup_exception))
         return None
 
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "create completed",
+    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name, "create completed",
                          lacework_sub_account_name)
     send_cfn_success(event, context)
     return None
@@ -145,7 +144,7 @@ def delete(event, context):
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
 
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "delete started",
+    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name, "delete started",
                          lacework_sub_account_name)
 
     cloudformation_client = boto3.client("cloudformation")
@@ -266,7 +265,7 @@ def delete(event, context):
     except Exception as delete_exception:
         logger.warning("Failed to delete CloudTrail cloud account for {} {}.", lacework_account_name, delete_exception)
 
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "delete completed",
+    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name, "delete completed",
                          lacework_sub_account_name)
     send_cfn_success(event, context)
     return None
@@ -283,7 +282,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
     external_id = "lweid:aws:v2:%s:%s:%s" % (lacework_account_name, log_account_id, ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)))
     if log_account_id is None:
         raise error_exception("Log account with name {} was not found.".format(log_account_id),
-                              HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                              DATASET, BUILD_VERSION, lacework_account_name,
                               lacework_sub_account_name)
     else:
         logger.info("Log account {} has AWS ID {}.".format(log_account_name, log_account_id))
@@ -291,7 +290,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
     audit_account_id = get_account_id_by_name(audit_account_name)
     if audit_account_id is None:
         raise error_exception("Audit account with name {} was not found.".format(audit_account_id),
-                              HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                              DATASET, BUILD_VERSION, lacework_account_name,
                               lacework_sub_account_name)
     else:
         logger.info("Audit account {} has AWS ID {}.".format(audit_account_name, audit_account_id))
@@ -305,7 +304,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
         cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
     except Exception as trail_exception:
         raise error_exception("Error getting cloudtrail {} {}.".format(existing_cloudtrail, trail_exception),
-                              HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                              DATASET, BUILD_VERSION, lacework_account_name,
                               lacework_sub_account_name)
 
     cloudformation_client = boto3.client("cloudformation")
@@ -388,7 +387,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                 logger.info("StackSet {} deployed".format(log_stack_set_name))
             except cloudformation_client.exceptions.StackSetNotFoundException as describe_exception:
                 raise error_exception("Exception getting new stack set, {}".format(describe_exception),
-                                      HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                      DATASET, BUILD_VERSION, lacework_account_name,
                                       lacework_sub_account_name)
 
             log_stack_instance_response = create_stack_set_instances(log_stack_set_name,
@@ -399,7 +398,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             logger.info("Log stack set instance created {}".format(log_stack_instance_response))
         except Exception as create_exception:
             raise error_exception("Error creating log account stack {}.".format(create_exception),
-                                  HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                  DATASET, BUILD_VERSION, lacework_account_name,
                                   lacework_sub_account_name)
 
     try:
@@ -459,7 +458,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                 logger.info("StackSet {} deployed".format(audit_stack_set_name))
             except cloudformation_client.exceptions.StackSetNotFoundException as describe_exception:
                 raise error_exception("Exception getting new stack set, {}".format(describe_exception),
-                                      HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                      DATASET, BUILD_VERSION, lacework_account_name,
                                       lacework_sub_account_name)
 
             audit_stack_instance_response = create_stack_set_instances(audit_stack_set_name,
@@ -476,7 +475,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             logger.info("Added CloudTrail account to Lacework {}".format(lacework_url))
         except Exception as create_exception:
             raise error_exception("Error creating audit account stack {}.".format(create_exception),
-                                  HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                  DATASET, BUILD_VERSION, lacework_account_name,
                                   lacework_sub_account_name)
 
 
@@ -542,7 +541,7 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
             logger.info("StackSet {} deployed".format(config_stack_set_name))
         except cloudformation_client.exceptions.StackSetNotFoundException as describe_exception:
             raise error_exception("Exception getting new stack set, {}".format(describe_exception),
-                                  HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                  DATASET, BUILD_VERSION, lacework_account_name,
                                   lacework_sub_account_name)
 
         if existing_accounts == "Yes":
@@ -566,13 +565,13 @@ def setup_config(lacework_account_name, lacework_sub_account_name,
                         account_dict[acct_id] = account_name
 
                 if len(account_list) > 0:
-                    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                    send_honeycomb_event(DATASET, BUILD_VERSION, lacework_account_name,
                                          "add {} existing".format(len(account_list)), lacework_sub_account_name)
                     send_to_account_function(account_list, account_dict, [region_name], config_stack_set_name,
                                              lacework_account_sns)
             except Exception as create_exception:
                 raise error_exception("Exception creating stack instances with {}".format(create_exception),
-                                      HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name,
+                                      DATASET, BUILD_VERSION, lacework_account_name,
                                       lacework_sub_account_name)
         else:
             logger.info("Chose NOT to deploy to existing accounts.")
