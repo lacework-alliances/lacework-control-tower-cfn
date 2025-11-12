@@ -1250,20 +1250,18 @@ Resources:
           - Sid: NOTIFICATIONS
             Action:
               - 'notifications:ListEventRules'
-              - 'notifications:ListManagedNotificationChildEvents'
-              - 'notifications:ListOrganizationalUnits'
-              - 'notifications:ListMemberAccounts'
               - 'notifications:ListNotificationConfigurations'
-              - 'notifications:ListManagedNotificationConfiguration'
-              - 'notifications:ListManagedNotificationEvents'
               - 'notifications:ListTagsForResource'
-              - 'notifications:ListManagedNotificationChannelAssociations'
               - 'notifications:ListNotificationEvents'
               - 'notifications:ListChannels'
               - 'notifications:ListNotificationHubs'
+              - 'notifications:GetNotificationConfiguration'
+              - 'notifications:GetEventRule'
+              - 'notifications:GetNotificationEvent'
             Effect: Allow
             Resource:
               - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+
 
