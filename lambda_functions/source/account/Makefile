@@ -2,7 +2,7 @@ PROJECT = LaceworkCTAccount
 DIR_NAME = account
 FUNCTION = $(PROJECT)3.3.2
 DIST_DIR ?= "$(BASE)"/lambda_functions/packages/$(DIR_NAME)
-HONEY_DATASET = $(DATASET)
+APM_DATASET = $(DATASET)
 
 all: build
 
@@ -16,7 +16,7 @@ build: clean
 	mkdir -p build
 	cp ../common/* build
 	buildid=$$(git describe --all --long | cut -d "/" -f 2); \
-	sed -e "s|\$$BUILD|$$buildid|g" -e "s|\$$DATASET|$(HONEY_DATASET)|g" -e "s|\$$HONEY_KEY|$(HONEY_KEY)|g" account.py > build/account.py
+	sed -e "s|\$$BUILD|$$buildid|g" -e "s|\$$DATASET|$(APM_DATASET)|g" account.py > build/account.py
 	pip3 install -r requirements.txt -t build
 	cd build; zip -r $(DIST_DIR)/$(FUNCTION).zip . -x "*.DS_Store*" "*.git*" "build*" "Makefile"
 	rm -rf build

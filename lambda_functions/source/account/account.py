@@ -27,11 +27,10 @@ import re
 
 from aws import list_stack_instance_by_account_region, is_account_valid, wait_for_stack_set_operation, \
     get_org_for_account, create_stack_set_instances, stack_set_instance_exists, delete_stack_set_instances
-from honeycomb import send_honeycomb_event
+from telemetry import send_lacework_telemetry_event
 from lacework import get_account_from_url, get_access_token, add_lw_cloud_account_for_cfg, \
     lw_cloud_account_exists_in_orgs, delete_lw_cloud_account_in_orgs, update_lw_cloud_account_in_orgs
 
-HONEY_API_KEY = "$HONEY_KEY"
 DATASET = "$DATASET"
 BUILD_VERSION = "$BUILD"
 
@@ -49,6 +48,13 @@ HANDLED_EVENTS = {'CreateManagedAccount', 'UpdateManagedAccount'}
 
 def lambda_handler(event, context):
     logger.info("account.lambda_handler called.")
+    lacework_api_credentials = os.environ['lacework_api_credentials']
+    access_token = get_access_token(lacework_api_credentials)
+
+    if access_token is None:
+        logger.error("Unable to get Lacework access token from handler")
+        return None
+    
     #logger.info(json.dumps(event))
     try:
         # called from stack_setSNS
@@ -56,7 +62,7 @@ def lambda_handler(event, context):
             stack_set_sns_processing(event['Records'])
         # called from event bridge rule
         elif 'detail' in event and event['detail']['eventName'] in HANDLED_EVENTS:
-            lifecycle_eventbridge_processing(event)
+            lifecycle_eventbridge_processing(event, access_token)
         else:
             logger.info("Event not processed.")
     except Exception as e:
@@ -70,31 +76,31 @@ def stack_set_sns_processing(messages):
         cfn_stack_set_processing(payload)
 
 
-def lifecycle_eventbridge_processing(event):
+def lifecycle_eventbridge_processing(event, token):
     logger.info("account.lifecycle_eventbridge_processing called.")
     if 'createManagedAccountStatus' in event['detail']['serviceEventDetails'] and \
             event['detail']['serviceEventDetails']['createManagedAccountStatus']['state'] == "SUCCEEDED":
         account_id = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountId']
         account_name = event['detail']['serviceEventDetails']['createManagedAccountStatus']['account']['accountName']
         logger.info("Processing createManagedAccountStatus event for account: {}".format(account_id))
-        process_ct_lifecycle_event(account_id, account_name, event)
+        process_ct_lifecycle_event(account_id, account_name, event, token)
     elif 'updateManagedAccountStatus' in event['detail']['serviceEventDetails'] and \
             event['detail']['serviceEventDetails']['updateManagedAccountStatus']['state'] == "SUCCEEDED":
         account_id = event['detail']['serviceEventDetails']['updateManagedAccountStatus']['account']['accountId']
         account_name = event['detail']['serviceEventDetails']['updateManagedAccountStatus']['account']['accountName']
         logger.info("Processing updateManagedAccountStatus event for account: {}".format(account_id))
-        process_ct_lifecycle_event(account_id, account_name, event)
+        process_ct_lifecycle_event(account_id, account_name, event, token)
     else:
         logger.error("Invalid event state, expected: SUCCEEDED : {}".format(event))
 
 
-def process_ct_lifecycle_event(account_id, account_name, event):
+def process_ct_lifecycle_event(account_id, account_name, event, access_token):
     region = event['detail']['awsRegion']
     lacework_url = os.environ['lacework_url']
     lacework_account_name = get_account_from_url(lacework_url)
-    lacework_sub_account_name = os.environ['lacework_sub_account_name']
-    send_honeycomb_event(HONEY_API_KEY, DATASET, BUILD_VERSION, lacework_account_name, "add account",
-                         lacework_sub_account_name)
+    lacework_sub_account_name = os.environ.get('lacework_sub_account_name')
+    send_lacework_telemetry_event(DATASET, BUILD_VERSION, lacework_account_name, "add account",
+                         "account.process_ct_lifecycle_event", access_token, lacework_sub_account_name)
     config_stack_set_name = CONFIG_NAME_PREFIX + \
                             (lacework_account_name if not lacework_sub_account_name else lacework_sub_account_name)
     logger.info("Processing Lifecycle event for {} in {}".format(account_id, region))
@@ -110,7 +116,7 @@ def cfn_stack_set_processing(messages):
     sns_client = boto3.client("sns")
     lacework_url = os.environ['lacework_url']
     lacework_account_name = get_account_from_url(lacework_url)
-    lacework_sub_account_name = os.environ['lacework_sub_account_name']
+    lacework_sub_account_name = os.environ.get('lacework_sub_account_name')
     lacework_org_sub_account_names = os.environ['lacework_org_sub_account_names']
     lacework_account_sns = os.environ['lacework_account_sns']
     lacework_api_credentials = os.environ['lacework_api_credentials']
