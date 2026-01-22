@@ -21,6 +21,12 @@ Parameters:
     Description: The cross account role to use for access. Typically, this is the Log account cross account role.
     Default: ''
     Type: String
+  ConfigBucketName:
+    Type: String
+    Description: "The name of the AWS Config bucket created by Control Tower 4.0 (e.g., aws-controltower-config-12345...)"
+    Default: ''
+Conditions:
+  HasConfigBucket: !Not [!Equals [!Ref ConfigBucketName, '']]
 Resources:
   LaceworkCWSSubscription:
     Type: 'AWS::SNS::Subscription'
@@ -59,8 +65,36 @@ Resources:
               - 'sqs:GetQueueAttributes'
               - 'sqs:GetQueueUrl'
             Resource: !GetAtt LaceworkCWSQueue.Arn
+          - Sid: AllowCTSNSToSendMessage
+            Effect: Allow
+            Principal:
+              Service: "sns.amazonaws.com"
+            Action: "sqs:SendMessage"
+            Resource: !GetAtt LaceworkCWSQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
       Queues:
         - !Ref LaceworkCWSQueue
+  ConfigBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: HasConfigBucket
+    Properties:
+      Bucket: !Ref ConfigBucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowLaceworkRead
+            Effect: Allow
+            Principal:
+              AWS: !Ref CrossAccountAccessRoleArn
+            Action:
+              - 's3:GetBucketLocation'
+              - 's3:ListBucket'
+              - 's3:GetObject'
+            Resource:
+              - !Sub "arn:aws:s3:::${ConfigBucketName}"
+              - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
 Outputs:
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
@@ -68,4 +102,3 @@ Outputs:
   TemplateVersion:
     Description: Template version
     Value: '1.1'
-

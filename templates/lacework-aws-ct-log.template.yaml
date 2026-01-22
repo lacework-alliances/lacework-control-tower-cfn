@@ -107,6 +107,15 @@ Resources:
               - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
+          - Sid: AllowReadConfigBucketInAudit
+            Effect: Allow
+            Action:
+              - 's3:GetBucketLocation'
+              - 's3:ListBucket'
+              - 's3:GetObject'
+            Resource:
+              - 'arn:aws:s3:::aws-controltower-config-*'
+              - 'arn:aws:s3:::aws-controltower-config-*/*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
   LaceworkCWSDecryptPolicy:
@@ -138,4 +147,3 @@ Outputs:
   TemplateVersion:
     Description: Template version
     Value: '1.1'
-
