@@ -1,4 +1,5 @@
-BUCKET_NAME := lacework-alliances-pengyuan-test
+# Update BUCKET_NAME for development or testing
+BUCKET_NAME := lacework-alliances
 KEY_PREFIX := lacework-control-tower-cfn
 DATASET := lacework-alliances-prod
 
