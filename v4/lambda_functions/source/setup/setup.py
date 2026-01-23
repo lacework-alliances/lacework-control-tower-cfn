@@ -27,7 +27,7 @@ from crhelper import CfnResource
 
 from aws import is_account_active, wait_for_stack_set_operation, get_account_id_by_name, send_cfn_fail, \
     send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances, get_stack_tags, \
-    stack_set_exists
+    stack_set_exists, enable_cloudtrail_sns, find_config_bucket
 from telemetry import send_lacework_telemetry_event
 from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account, \
     get_lacework_environment_variables
@@ -307,7 +307,15 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             Name=existing_cloudtrail
         )
         cloudtrail_s3_bucket = trail['Trail']['S3BucketName']
-        cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+        if 'SnsTopicARN' in trail['Trail']:
+            cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+        else:
+            enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name)
+            trail = cloudtrail_client.get_trail(
+                Name=existing_cloudtrail
+            )
+            cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+
     except Exception as trail_exception:
         raise error_exception("Error getting cloudtrail {} {}.".format(existing_cloudtrail, trail_exception),
                               access_token, DATASET, BUILD_VERSION, lacework_account_name,
@@ -421,9 +429,31 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             logger.info("Using role {} to create stack set url {}".format(audit_role, audit_account_template))
             cross_account_access_role = get_cross_account_access_role(lacework_account_name, lacework_sub_account_name,
                                                                       log_account_id)
+            # Discover Config bucket for Control Tower 4.0
+            config_bucket_name = ""
+            try:
+                logger.info("Discovering Config bucket for Control Tower 4.0")
+                # Create session for audit account to find Config bucket
+                sts_client = boto3.client('sts')
+                audit_role_arn = f"arn:aws:iam::{audit_account_id}:role/AWSControlTowerExecution"
+                assumed_role = sts_client.assume_role(
+                    RoleArn=audit_role_arn,
+                    RoleSessionName="LaceworkConfigDiscovery"
+                )
+                audit_session = boto3.Session(
+                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                    aws_session_token=assumed_role['Credentials']['SessionToken']
+                )
+                config_bucket_name = find_config_bucket(audit_session, region_name)
+                logger.info(f"Found Config bucket: {config_bucket_name}")
+            except Exception as config_exception:
+                logger.warning(f"Could not discover Config bucket: {config_exception}")
+                config_bucket_name = ""
+                
             logger.info("Creating audit stack {} with ResourceNamePrefix: {} ExistingTrailTopicArn: {} "
-                        "CrossAccountAccessRoleArn: {}".format(audit_account_template, lacework_account_name,
-                                                               cloudtrail_sns_topic, cross_account_access_role))
+                        "CrossAccountAccessRoleArn: {} ConfigBucketName: {}".format(audit_account_template, lacework_account_name,
+                                                               cloudtrail_sns_topic, cross_account_access_role, config_bucket_name))
 
             cfn_stack = os.environ['cfn_stack']
             cfn_stack_id = os.environ['cfn_stack_id']
@@ -450,6 +480,12 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                         "ParameterValue": cross_account_access_role,
                         "UsePreviousValue": False,
                         "ResolvedValue": "string"
+                    },
+                    {
+                        "ParameterKey": "ConfigBucketName",
+                        "ParameterValue": config_bucket_name,
+                        "UsePreviousValue": False,
+                        "ResolvedValue": "string"
                     }
                 ],
                 Tags=cfn_tags,
@@ -473,7 +509,9 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             wait_for_stack_set_operation(audit_stack_set_name, audit_stack_instance_response['OperationId'])
 
             logger.info("Audit stack set instance created {}".format(audit_stack_instance_response))
-
+            # Enable SNS on CloudTrail for Control Tower 4.0 compatibility
+            # logger.info("Enabling SNS on CloudTrail for Control Tower 4.0 compatibility")
+            # enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name)
             add_lw_cloud_account_for_ct(log_stack_set_name, lacework_url, lacework_sub_account_name,
                                         access_token, external_id,
                                         cross_account_access_role,

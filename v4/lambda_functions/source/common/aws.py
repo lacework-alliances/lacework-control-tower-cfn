@@ -340,3 +340,60 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
 
     except Exception as e:
         logger.error("send_cfn_response error {}".format(e))
+
+
+def enable_cloudtrail_sns(trail_name, audit_account_id, region):
+    """
+    Enables SNS on CloudTrail to fix the "Silent CloudTrail" issue in Control Tower 4.0.
+    
+    Args:
+        trail_name: Name of the CloudTrail
+        audit_account_id: AWS account ID of the audit account
+        region: AWS region
+        
+    Returns:
+        True if successful, raises exception if failed
+    """
+    logger.info("aws.enable_cloudtrail_sns called.")
+    try:
+        ct_client = boto3.client('cloudtrail', region_name=region)
+        # The SNS topic typically lives in the Audit Account in CT 4.0
+        sns_topic_arn = f"arn:aws:sns:{region}:{audit_account_id}:aws-controltower-AllConfigNotifications"
+        logger.info(f"Updating CloudTrail {trail_name} to use SNS topic: {sns_topic_arn}")
+        ct_client.update_trail(
+            Name=trail_name,
+            SnsTopicName=sns_topic_arn,
+            EnableLogFileValidation=True
+        )
+        logger.info("Successfully updated CloudTrail SNS.")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating CloudTrail SNS: {str(e)}")
+        raise e
+
+
+def find_config_bucket(audit_session, region):
+    """
+    Finds the bucket starting with 'aws-controltower-config-logs-' in the Audit account.
+    Requires a boto3 session assumed into the Audit Account.
+    
+    Args:
+        audit_session: Boto3 session for the audit account
+        region: AWS region
+        
+    Returns:
+        Name of the Config bucket, or raises exception if not found
+    """
+    logger.info("aws.find_config_bucket called.")
+    try:
+        s3 = audit_session.client('s3', region_name=region)
+        response = s3.list_buckets()
+        for bucket in response['Buckets']:
+            if bucket['Name'].startswith('aws-controltower-config-logs-'):
+                logger.info(f"Found Config Bucket: {bucket['Name']}")
+                return bucket['Name']
+
+        raise Exception("Could not find aws-controltower-config-logs bucket in Audit Account.")
+    except Exception as e:
+        logger.error(f"Error finding Config bucket: {str(e)}")
+        raise e
