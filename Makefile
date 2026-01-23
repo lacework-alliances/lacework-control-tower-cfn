@@ -1,48 +1,50 @@
-
-BUCKET_PREFIX := lacework-alliances
+# Update BUCKET_NAME for development or testing
+BUCKET_NAME := lacework-alliances
 KEY_PREFIX := lacework-control-tower-cfn
-PACKAGES_PREFIX := lambda/
-CFT_PREFIX := templates
-CFT_DIR := templates
 DATASET := lacework-alliances-prod
 
-#PROFILE ?= alliances-admin
+# Set to true from command line for Control Tower V4 support, e.g., make build V4=true
+V4 ?= false
+
+# Update VERSION with each v3 release
+VERSION ?= 3.3.2
+
+PROFILE ?= alliances-admin
 REGION ?= us-west-2
 
-BUCKET_NAME ?= service_not_defined
-BASE = $(shell /bin/pwd)
+BASE := $(shell pwd)
+TEMPLATES_DIR := templates
+LAMBDA_DIRS := $(wildcard lambda_functions/source/*/.)
+LAMBDA_PACKAGES := $(wildcard lambda_functions/packages/*/*.zip)
 
-s3_buckets := $(BUCKET_PREFIX)
+ifeq ($(V4), true)
+# Update VERSION with each v4 release
+VERSION := 4.0.0
+KEY_PREFIX := lacework-control-tower-cfn/v4
+BASE := $(shell pwd)/v4
+TEMPLATES_DIR := v4/templates
+LAMBDA_DIRS := $(wildcard v4/lambda_functions/source/*/.)
+LAMBDA_PACKAGES := $(wildcard v4/lambda_functions/packages/*/*.zip)
+endif
 
-TOPTARGETS := all clean package build
+TARGETS := all clean build
+$(TARGETS): $(LAMBDA_DIRS)
 
-SUBDIRS := $(wildcard lambda_functions/source/*/.)
-ZIP_SUBDIRS := $(wildcard lambda_functions/packages/*/.)
+$(LAMBDA_DIRS):
+	$(MAKE) -C $@ $(MAKECMDGOALS) $(ARGS) BASE="$(BASE)" VERSION="$(VERSION)" DATASET="${DATASET}"
 
-ZIP_FILES := $(shell find $(ZIP_SUBDIRS) -type f -name '*.zip')
+upload:
+	@$(MAKE) upload-templates
+	@$(MAKE) upload-packages
 
-$(TOPTARGETS): $(SUBDIRS)
-
-$(SUBDIRS):
-	$(MAKE) -C $@ $(MAKECMDGOALS) $(ARGS) BASE="${BASE}" DATASET="${DATASET}"
-
-upload: $(s3_buckets)
-
-$(s3_buckets):
-	$(info [+] Uploading artifacts to '$@' bucket)
-	@$(MAKE) _upload BUCKET_NAME=$@
-	@$(MAKE) _upload_zip BUCKET_NAME=$@
-
-_upload:
+upload-templates:
 	$(info [+] Uploading templates to $(BUCKET_NAME) bucket)
-	@aws --region $(REGION) s3 cp $(CFT_DIR)/ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(CFT_PREFIX) --recursive --exclude "*" --include "*.yaml" --include "*.yml" --acl public-read
+	@aws --profile $(PROFILE) --region $(REGION) s3 cp $(TEMPLATES_DIR) s3://$(BUCKET_NAME)/$(KEY_PREFIX)/templates/ --recursive --exclude "*" --include "*.yaml" --include "*.yml" --acl public-read
 
-_upload_zip: $(ZIP_SUBDIRS)
+upload-packages: $(LAMBDA_PACKAGES)
+	$(info [+] Uploading Lambda packages to $(BUCKET_NAME) bucket)
+	@for zip in $(LAMBDA_PACKAGES); do \
+		aws --profile $(PROFILE) --region $(REGION) s3 cp $$zip s3://$(BUCKET_NAME)/$(KEY_PREFIX)/lambda/ --acl public-read; \
+	done
 
-$(ZIP_SUBDIRS): $(ZIP_FILES)
-
-$(ZIP_FILES):
-	$(info [+] Uploading zip files to $(BUCKET_NAME) bucket)
-	@aws --region $(REGION) s3 cp $@ s3://$(BUCKET_NAME)/$(KEY_PREFIX)/$(PACKAGES_PREFIX) --acl public-read
-
-.PHONY: $(TOPTARGETS) $(SUBDIRS) $(s3_buckets) $(ZIP_FILES)
+.PHONY: $(TARGETS) $(LAMBDA_DIRS) $(BUCKET_NAME) $(LAMBDA_PACKAGES)
