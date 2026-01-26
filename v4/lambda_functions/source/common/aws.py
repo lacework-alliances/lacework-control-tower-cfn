@@ -342,7 +342,7 @@ def send_cfn_response(event, context, response_status, response_data, physical_r
         logger.error("send_cfn_response error {}".format(e))
 
 
-def enable_cloudtrail_sns(trail_name, audit_account_id, region):
+def enable_cloudtrail_sns(trail_name, audit_account_id, region, management_account_id):
     """
     Enables SNS on CloudTrail to fix the "Silent CloudTrail" issue in Control Tower 4.0.
     
@@ -356,9 +356,54 @@ def enable_cloudtrail_sns(trail_name, audit_account_id, region):
     """
     logger.info("aws.enable_cloudtrail_sns called.")
     try:
+        sts_client = boto3.client('sts')
+        audit_role_arn = f"arn:aws:iam::{audit_account_id}:role/AWSControlTowerExecution"
+        logger.info(f"Assuming role {audit_role_arn} to update CloudTrail SNS.")
+        assumed_role = sts_client.assume_role(
+            RoleArn=audit_role_arn,
+            RoleSessionName="LaceworkSNSSetup"
+        )
+        audit_session = boto3.Session(
+            aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+            aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+            aws_session_token=assumed_role['Credentials']['SessionToken']
+        )
+        sns_client = audit_session.client('sns', region_name=region)
+        sns_topic_arn = f"arn:aws:sns:{region}:{audit_account_id}:aws-controltower-AllConfigNotifications"
+        trail_arn = f"arn:aws:cloudtrail:{region}:{management_account_id}:trail/{trail_name}"
+        
+        # Get and update sns policy
+        attributes = sns_client.get_topic_attributes(
+            TopicArn=sns_topic_arn
+        )
+        policy = json.loads(attributes['Attributes']['Policy'])
+        statement_id = "AllowCloudTrailPublish"
+        policy_statement = {
+            "Sid": statement_id,
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "cloudtrail.amazonaws.com"
+            },
+            "Action": "SNS:Publish",
+            "Resource": sns_topic_arn,
+            "Condition": {
+                "StringEquals": {
+                    "AWS:SourceArn": trail_arn
+                }
+            }
+        }
+        statements = policy.get('Statement', [])
+        statements = [s for s in statements if s.get('Sid') != statement_id]
+        statements.append(policy_statement)
+        policy['Statement'] = statements
+        sns_client.set_topic_attributes(
+            TopicArn=sns_topic_arn,
+            AttributeName='Policy',
+            AttributeValue=json.dumps(policy)
+        )
+        # Update CloudTrail to use the SNS topic
         ct_client = boto3.client('cloudtrail', region_name=region)
         # The SNS topic typically lives in the Audit Account in CT 4.0
-        sns_topic_arn = f"arn:aws:sns:{region}:{audit_account_id}:aws-controltower-AllConfigNotifications"
         logger.info(f"Updating CloudTrail {trail_name} to use SNS topic: {sns_topic_arn}")
         ct_client.update_trail(
             Name=trail_name,

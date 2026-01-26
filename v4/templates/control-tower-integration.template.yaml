@@ -466,12 +466,31 @@ Resources:
             Effect: Allow
             Action:
             - sns:Publish
-            Resource: !Ref LaceworkAccountSNS
+            - sns:GetTopicAttributes
+            - sns:SetTopicAttributes
+            - sns:AddPermission
+            - sns:RemovePermission
+            Resource: 
+            - !Ref LaceworkAccountSNS
+            - "arn:aws:sns:*:*:aws-controltower-AllConfigNotifications"
+          - Sid: KMSOps
+            Effect: Allow
+            Action:
+            - kms:ListAliases
+            - kms:DescribeKey
+            - kms:GetKeyPolicy
+            Resource: "*"
           - Sid: PassRole
             Effect: Allow
             Action:
             - iam:PassRole
             Resource: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'role/service-role/AWSControlTowerStackSetRole' ]]
+          - Sid: AssumeRole
+            Effect: Allow
+            Action:
+            - sts:AssumeRole
+            Resource:
+            - !Sub 'arn:aws:iam::*:role/AWSControlTowerExecution'
           - Sid: ApiKeySecretRead
             Effect: Allow
             Action:
@@ -483,6 +502,7 @@ Resources:
             Effect: Allow
             Action:
               - cloudtrail:GetTrail
+              - cloudtrail:UpdateTrail
             Resource: !Join ['', ['arn:aws:cloudtrail:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':trail/', !Ref 'ExistingCloudTrail' ]]
           - Sid: ListAccounts
             Effect: Allow

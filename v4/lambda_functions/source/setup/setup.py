@@ -310,7 +310,7 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
         if 'SnsTopicARN' in trail['Trail']:
             cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
         else:
-            enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name)
+            enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name, management_account_id)
             trail = cloudtrail_client.get_trail(
                 Name=existing_cloudtrail
             )
