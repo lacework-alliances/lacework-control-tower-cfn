@@ -387,6 +387,18 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                         "ParameterValue": sqs_queue_arn,
                         "UsePreviousValue": False,
                         "ResolvedValue": "string"
+                    },
+                    {
+                        "ParameterKey": "CloudTrailSnsTopicArn",
+                        "ParameterValue": cloudtrail_sns_topic,
+                        "UsePreviousValue": False,
+                        "ResolvedValue": "string"
+                    },
+                    {
+                        "ParameterKey": "AuditAccountId",
+                        "ParameterValue": audit_account_id,
+                        "UsePreviousValue": False,
+                        "ResolvedValue": "string"
                     }
                 ],
                 Tags=cfn_tags,

@@ -41,8 +41,17 @@ Parameters:
   SqsQueueArn:
     Type: String
     Description: The SQS Queue Arn.
+  CloudTrailSnsTopicArn:
+    Type: String
+    Description: The ARN of the CloudTrail SNS Topic to allow cross-account Subscription.
+    Default: ""
+  AuditAccountId:
+    Type: String
+    Description: The Account ID of the Audit Account that will subscribe to the CloudTrail SNS Topic.
+    Default: ""
 Conditions:
   UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
+  HasCloudTrailSnsTopicArn: !Not [!Equals [!Ref CloudTrailSnsTopicArn, '']]
 Resources:
   LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
@@ -118,6 +127,23 @@ Resources:
               - 'arn:aws:s3:::aws-controltower-config-logs-*/*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+  CloudTrailSnsTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Condition: HasCloudTrailSnsTopic
+    Properties:
+      Topics:
+        - !Ref CloudTrailSnsTopicArn
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowAuditAccountSubscribe
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AuditAccountId}:root"
+            Action:
+              - 'sns:Subscribe'
+              - 'sns:Receive'
+            Resource: !Ref CloudTrailSnsTopicArn
   LaceworkCWSDecryptPolicy:
     Type: 'AWS::IAM::Policy'
     Condition: UseKMSDecrypt

@@ -103,32 +103,6 @@ Resources:
             Resource:
               - !Sub "arn:aws:s3:::${ConfigBucketName}"
               - !Sub "arn:aws:s3:::${ConfigBucketName}/*"
-  SNSTopicPolicy:
-    Type: AWS::SNS::TopicPolicy
-    Properties:
-      Topics:
-        - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: AWSSNSPolicy
-            Effect: Allow
-            Principal:
-              Service: "config.amazonaws.com"
-            Action:
-              - "sns:Publish"
-            Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
-            Condition:
-              StringEquals:
-                "aws:SourceOrgID": "o-2aqx3gnw51"
-          - Sid: AllowCloudTrailPublish
-            Effect: Allow
-            Principal:
-              Service: "cloudtrail.amazonaws.com"
-            Action:
-              - 'sns:Publish'
-            Resource:
-              - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
 Outputs:
   SQSQueueURL:
     Description: SQS queue URL to share with Lacework for CloudTrail Integration
