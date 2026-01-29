@@ -36,6 +36,14 @@ Resources:
         - Arn
       Protocol: sqs
       TopicArn: !Ref ExistingTrailTopicArn
+  LaceworkConfigSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !GetAtt
+        - LaceworkCWSQueue
+        - Arn
+      Protocol: sqs
+      TopicArn: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
   LaceworkCWSQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
