@@ -16,20 +16,20 @@ FAILED = "FAILED"
 STACK_SET_OPERATION_SUCCESS_STATES = ["SUCCEEDED"]
 STACK_SET_OPERATION_RUNNING_STATES = ["RUNNING", "STOPPING"]
 
-LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
+LOGLEVEL = os.environ.get("LOGLEVEL", logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
 
 
 def get_account_id_by_name(name):
     logger.info("aws.get_account_id_by_name called.")
-    org_client = boto3.client('organizations')
+    org_client = boto3.client("organizations")
     paginator = org_client.get_paginator("list_accounts")
     page_iterator = paginator.paginate()
     for page in page_iterator:
-        for acct in page['Accounts']:
-            if acct['Name'] == name:
-                return acct['Id']
+        for acct in page["Accounts"]:
+            if acct["Name"] == name:
+                return acct["Id"]
 
     return None
 
@@ -41,29 +41,28 @@ def is_account_valid(acct, orgs):
 
 def is_account_active(acct):
     logger.info("aws.is_account_active called.")
-    org_client = boto3.client('organizations')
+    org_client = boto3.client("organizations")
     try:
-        response = org_client.describe_account(
-            AccountId=acct
-        )
-        logger.info("Account {} is {}.".format(acct, response['Account']['Status']))
-        return response['Account']['Status'] == "ACTIVE"
+        response = org_client.describe_account(AccountId=acct)
+        logger.info("Account {} is {}.".format(acct, response["Account"]["Status"]))
+        return response["Account"]["Status"] == "ACTIVE"
     except Exception as describe_exception:
-        logger.warning("Exception getting account status on {} {}.".format(acct, describe_exception))
+        logger.warning(
+            "Exception getting account status on {} {}.".format(
+                acct, describe_exception
+            )
+        )
         return False
 
 
 def get_org_tree_for_id(ou_acct_id):
     logger.info("aws.get_org_tree_for_account called.")
     org_tree = []
-    org_client = boto3.client('organizations')
+    org_client = boto3.client("organizations")
     try:
         while ou_acct_id:
-            response = org_client.list_parents(
-                ChildId=ou_acct_id,
-                MaxResults=20
-            )
-            for parent in response['Parents']:
+            response = org_client.list_parents(ChildId=ou_acct_id, MaxResults=20)
+            for parent in response["Parents"]:
                 if parent["Type"] == "ORGANIZATIONAL_UNIT":
                     ou_acct_id = parent["Id"]
                     org_name = org_client.describe_organizational_unit(
@@ -75,7 +74,9 @@ def get_org_tree_for_id(ou_acct_id):
                     break
         return org_tree
     except Exception as describe_exception:
-        logger.error("Exception getting account org on {} {}.".format(id, describe_exception))
+        logger.error(
+            "Exception getting account org on {} {}.".format(id, describe_exception)
+        )
         return False
 
 
@@ -88,7 +89,7 @@ def is_account_in_orgs(acct, orgs):
         acct_orgs = get_org_tree_for_id(acct)
 
         if acct_orgs:
-            org_list = [x.strip() for x in orgs.split(',')]
+            org_list = [x.strip() for x in orgs.split(",")]
             for acct_org in acct_orgs:
                 for org in org_list:
                     if org.lower() == acct_org.lower():
@@ -101,7 +102,9 @@ def is_account_in_orgs(acct, orgs):
             return False
 
     except Exception as describe_exception:
-        logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
+        logger.error(
+            "Exception getting account org on {} {}.".format(acct, describe_exception)
+        )
         return False
 
 
@@ -114,7 +117,7 @@ def get_org_for_account(acct, orgs):
         acct_orgs = get_org_tree_for_id(acct)
 
         if acct_orgs:
-            org_list = [x.strip() for x in orgs.split(',')]
+            org_list = [x.strip() for x in orgs.split(",")]
             for acct_org in acct_orgs:
                 for org in org_list:
                     if org.lower() == acct_org.lower():
@@ -127,33 +130,43 @@ def get_org_for_account(acct, orgs):
             return None
 
     except Exception as describe_exception:
-        logger.error("Exception getting account org on {} {}.".format(acct, describe_exception))
+        logger.error(
+            "Exception getting account org on {} {}.".format(acct, describe_exception)
+        )
         return None
 
 
-def create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides=[], retry=1):
+def create_stack_set_instances(
+    stack_set_name, accounts, regions, parameter_overrides=[], retry=1
+):
     logger.info("aws.create_stack_set_instances called.")
-    logger.info("Create stack name={} accounts={} regions={} parameter_overrides={} ".format(stack_set_name, accounts,
-                                                                                             regions,
-                                                                                             parameter_overrides))
+    logger.info(
+        "Create stack name={} accounts={} regions={} parameter_overrides={} ".format(
+            stack_set_name, accounts, regions, parameter_overrides
+        )
+    )
     cloud_formation_client = boto3.client("cloudformation")
     try:
-        return cloud_formation_client.create_stack_instances(StackSetName=stack_set_name,
-                                                         Accounts=accounts,
-                                                         Regions=regions,
-                                                         ParameterOverrides=parameter_overrides,
-                                                         OperationPreferences={
-                                                             'RegionConcurrencyType': "PARALLEL",
-                                                             'MaxConcurrentCount': 100,
-                                                             'FailureToleranceCount': 999
-                                                         })
+        return cloud_formation_client.create_stack_instances(
+            StackSetName=stack_set_name,
+            Accounts=accounts,
+            Regions=regions,
+            ParameterOverrides=parameter_overrides,
+            OperationPreferences={
+                "RegionConcurrencyType": "PARALLEL",
+                "MaxConcurrentCount": 100,
+                "FailureToleranceCount": 999,
+            },
+        )
     except Exception as e:
-        if e.response['Error']['Code'] == 'OperationInProgressException':
+        if e.response["Error"]["Code"] == "OperationInProgressException":
             logger.info("StackSet {} already in progress.".format(stack_set_name))
             if retry < RETRIES:
                 logger.info("Retrying in {} seconds.".format(retry * RETRY_WAIT))
                 time.sleep(retry * RETRY_WAIT)
-                return create_stack_set_instances(stack_set_name, accounts, regions, parameter_overrides, retry + 1)
+                return create_stack_set_instances(
+                    stack_set_name, accounts, regions, parameter_overrides, retry + 1
+                )
             else:
                 logger.error("Retried {} times. Giving up.".format(RETRIES))
                 raise e
@@ -167,17 +180,20 @@ def delete_stack_set_instances(stack_set_name, account_list, region_list, retry=
             StackSetName=stack_set_name,
             Accounts=account_list,
             Regions=region_list,
-            RetainStacks=False)
+            RetainStacks=False,
+        )
         logger.info(response)
 
-        wait_for_stack_set_operation(stack_set_name, response['OperationId'])
+        wait_for_stack_set_operation(stack_set_name, response["OperationId"])
     except Exception as e:
-        if e.response['Error']['Code'] == 'OperationInProgressException':
+        if e.response["Error"]["Code"] == "OperationInProgressException":
             logger.info("StackSet {} already in progress.".format(stack_set_name))
             if retry < RETRIES:
                 logger.info("Retrying in {} seconds.".format(retry * RETRY_WAIT))
                 time.sleep(retry * RETRY_WAIT)
-                delete_stack_set_instances(stack_set_name, account_list, region_list, retry + 1)
+                delete_stack_set_instances(
+                    stack_set_name, account_list, region_list, retry + 1
+                )
             else:
                 logger.error("Retried {} times. Giving up.".format(RETRIES))
                 raise e
@@ -187,17 +203,20 @@ def delete_stack_set_instances(stack_set_name, account_list, region_list, retry=
 
 def wait_for_stack_set_operation(stack_set_name, operation_id):
     logger.info("aws.wait_for_stack_set_operation called.")
-    logger.info("Waiting for StackSet Operation {} on StackSet {} to finish".format(operation_id, stack_set_name))
+    logger.info(
+        "Waiting for StackSet Operation {} on StackSet {} to finish".format(
+            operation_id, stack_set_name
+        )
+    )
     cloudformation_client = boto3.client("cloudformation")
     finished = False
     status = ""
     count = 1
     while not finished:
         time.sleep(count * RETRY_WAIT)
-        status = \
-            cloudformation_client.describe_stack_set_operation(StackSetName=stack_set_name, OperationId=operation_id)[
-                "StackSetOperation"
-            ]["Status"]
+        status = cloudformation_client.describe_stack_set_operation(
+            StackSetName=stack_set_name, OperationId=operation_id
+        )["StackSetOperation"]["Status"]
         if status in STACK_SET_OPERATION_RUNNING_STATES:
             logger.info("{} {} still running.".format(stack_set_name, operation_id))
         else:
@@ -237,14 +256,18 @@ def stack_set_instance_exists(stack_set_name, account_id):
 
         logger.info("stack_set_result: {}".format(stack_set_result))
         if stack_set_result and "Summaries" in stack_set_result:
-            stack_set_list = stack_set_result['Summaries']
+            stack_set_list = stack_set_result["Summaries"]
             while "NextToken" in stack_set_result:
                 stack_set_result = cfn_client.list_stack_set_instance(
-                    NextToken=stack_set_result['NextToken']
+                    NextToken=stack_set_result["NextToken"]
                 )
-                stack_set_list.append(stack_set_result['Summaries'])
+                stack_set_list.append(stack_set_result["Summaries"])
 
-            logger.info("Stack instance for account {} found {} times.".format(account_id, len(stack_set_list)))
+            logger.info(
+                "Stack instance for account {} found {} times.".format(
+                    account_id, len(stack_set_list)
+                )
+            )
             return len(stack_set_list) > 0
         else:
             return False
@@ -260,17 +283,17 @@ def list_stack_instance_by_account_region(stack_set_name, account_id, region):
         stack_set_result = cfn_client.list_stack_instances(
             StackSetName=stack_set_name,
             StackInstanceAccount=account_id,
-            StackInstanceRegion=region
+            StackInstanceRegion=region,
         )
 
         logger.info("stack_set_result: {}".format(stack_set_result))
         if stack_set_result and "Summaries" in stack_set_result:
-            stack_set_list = stack_set_result['Summaries']
+            stack_set_list = stack_set_result["Summaries"]
             while "NextToken" in stack_set_result:
                 stack_set_result = cfn_client.list_stack_set_instance(
-                    NextToken=stack_set_result['NextToken']
+                    NextToken=stack_set_result["NextToken"]
                 )
-                stack_set_list.append(stack_set_result['Summaries'])
+                stack_set_list.append(stack_set_result["Summaries"])
 
             return stack_set_list
         else:
@@ -284,12 +307,10 @@ def get_stack_tags(stack_name, stack_id):
     logger.info("aws.get_stack_tags.")
     try:
         cfn_client = boto3.client("cloudformation")
-        response = cfn_client.describe_stacks(
-            StackName=stack_name
-        )
+        response = cfn_client.describe_stacks(StackName=stack_name)
 
         logger.info("stacks_result: {}".format(response))
-        for stack in response['Stacks']:
+        for stack in response["Stacks"]:
             if stack["StackId"] == stack_id:
                 return stack["Tags"]
 
@@ -308,31 +329,38 @@ def send_cfn_success(event, context):
     send_cfn_response(event, context, SUCCESS, {"Message": "SUCCESS"})
 
 
-def send_cfn_response(event, context, response_status, response_data, physical_resource_id=None, no_echo=False,
-                      reason=None):
-    response_url = event['ResponseURL']
+def send_cfn_response(
+    event,
+    context,
+    response_status,
+    response_data,
+    physical_resource_id=None,
+    no_echo=False,
+    reason=None,
+):
+    response_url = event["ResponseURL"]
 
     logger.info(response_url)
 
     response_body = {
-        'Status': response_status,
-        'Reason': reason or "See the details in CloudWatch Log Stream: {}".format(context.log_stream_name),
-        'PhysicalResourceId': physical_resource_id or context.log_stream_name,
-        'StackId': event['StackId'],
-        'RequestId': event['RequestId'],
-        'LogicalResourceId': event['LogicalResourceId'],
-        'NoEcho': no_echo,
-        'Data': response_data
+        "Status": response_status,
+        "Reason": reason
+        or "See the details in CloudWatch Log Stream: {}".format(
+            context.log_stream_name
+        ),
+        "PhysicalResourceId": physical_resource_id or context.log_stream_name,
+        "StackId": event["StackId"],
+        "RequestId": event["RequestId"],
+        "LogicalResourceId": event["LogicalResourceId"],
+        "NoEcho": no_echo,
+        "Data": response_data,
     }
 
     json_response_body = json.dumps(response_body)
 
     logger.info("Response body: {}".format(json_response_body))
 
-    headers = {
-        'content-type': '',
-        'content-length': str(len(json_response_body))
-    }
+    headers = {"content-type": "", "content-length": str(len(json_response_body))}
 
     try:
         response = requests.put(response_url, headers=headers, data=json_response_body)
@@ -346,24 +374,26 @@ def find_config_bucket(audit_session, region):
     """
     Finds the bucket starting with 'aws-controltower-config-logs-' in the Audit account.
     Requires a boto3 session assumed into the Audit Account.
-    
+
     Args:
         audit_session: Boto3 session for the audit account
         region: AWS region
-        
+
     Returns:
         Name of the Config bucket, or raises exception if not found
     """
     logger.info("aws.find_config_bucket called.")
     try:
-        s3 = audit_session.client('s3', region_name=region)
+        s3 = audit_session.client("s3", region_name=region)
         response = s3.list_buckets()
-        for bucket in response['Buckets']:
-            if bucket['Name'].startswith('aws-controltower-config-logs-'):
+        for bucket in response["Buckets"]:
+            if bucket["Name"].startswith("aws-controltower-config-logs-"):
                 logger.info(f"Found Config Bucket: {bucket['Name']}")
-                return bucket['Name']
+                return bucket["Name"]
 
-        raise Exception("Could not find aws-controltower-config-logs bucket in Audit Account.")
+        raise Exception(
+            "Could not find aws-controltower-config-logs bucket in Audit Account."
+        )
     except Exception as e:
         logger.error(f"Error finding Config bucket: {str(e)}")
         raise e
