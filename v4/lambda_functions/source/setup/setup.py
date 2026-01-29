@@ -27,7 +27,7 @@ from crhelper import CfnResource
 
 from aws import is_account_active, wait_for_stack_set_operation, get_account_id_by_name, send_cfn_fail, \
     send_cfn_success, get_org_for_account, create_stack_set_instances, delete_stack_set_instances, get_stack_tags, \
-    stack_set_exists, enable_cloudtrail_sns, find_config_bucket
+    stack_set_exists, find_config_bucket
 from telemetry import send_lacework_telemetry_event
 from lacework import setup_initial_access_token, get_access_token, add_lw_cloud_account_for_ct, delete_lw_cloud_account, \
     get_lacework_environment_variables
@@ -308,13 +308,16 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
         )
         cloudtrail_s3_bucket = trail['Trail']['S3BucketName']
         if 'SnsTopicARN' in trail['Trail']:
+            # cloudtrail sns topic already enabled
             cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+            create_sns_topic = False
+            logger.info("CloudTrail has existing SNS Topic: {}".format(cloudtrail_sns_topic))
         else:
-            enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name, management_account_id)
-            trail = cloudtrail_client.get_trail(
-                Name=existing_cloudtrail
-            )
-            cloudtrail_sns_topic = trail['Trail']['SnsTopicARN']
+            # Cloudtrail has no SNS topic
+            # We will create a new SNS topic in the log account stack set
+            cloudtrail_sns_topic = ""
+            create_sns_topic = True
+            logger.info("CloudTrail has no existing SNS Topic, will create new one in log archive account.")
 
     except Exception as trail_exception:
         raise error_exception("Error getting cloudtrail {} {}.".format(existing_cloudtrail, trail_exception),
@@ -399,6 +402,12 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
                         "ParameterValue": audit_account_id,
                         "UsePreviousValue": False,
                         "ResolvedValue": "string"
+                    },
+                    {
+                        "ParameterKey": "CreateCloudTrailSnsTopic",
+                        "ParameterValue": "true" if create_sns_topic else "false",
+                        "UsePreviousValue": False,
+                        "ResolvedValue": "string"
                     }
                 ],
                 Tags=cfn_tags,
@@ -422,6 +431,57 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             wait_for_stack_set_operation(log_stack_set_name, log_stack_instance_response['OperationId'])
 
             logger.info("Log stack set instance created {}".format(log_stack_instance_response))
+            
+            # if we created a new SNS topic, update cloudtrail_sns_topic variable and cloudtrail to point to it
+            if create_sns_topic:
+                try:
+                    # get the sns topic arn from log stack outputs
+                    stack_instances = cloudformation_client.list_stack_instances(
+                        StackSetName=log_stack_set_name,
+                        StackInstanceAccount=log_account_id,
+                        StackInstanceRegion=region_name
+                    )
+                    stack_id = stack_instances['Summaries'][0]['StackId']
+                    
+                    # assume role in Log Archive account to describe stack
+                    sts_client = boto3.client('sts')
+                    assumed_role = sts_client.assume_role(
+                        RoleArn=f"arn:aws:iam::{log_account_id}:role/AWSControlTowerExecution",
+                        RoleSessionName="LaceworkCloudTrailSetup"
+                    )
+
+                    log_cfn_client = boto3.client(
+                        'cloudformation',
+                        region_name=region_name,
+                        aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
+                        aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
+                        aws_session_token=assumed_role['Credentials']['SessionToken']
+                    )
+                    
+                    stack_response = log_cfn_client.describe_stacks(StackName=stack_id)
+                    outputs = stack_response['Stacks'][0].get('Outputs', [])
+                    
+                    new_sns_topic_arn = None
+                    for output in outputs:
+                        if output['OutputKey'] == 'CloudTrailSnsTopicArn':
+                            new_sns_topic_arn = output['OutputValue']
+                            break
+                    if new_sns_topic_arn:
+                        # update cloudtrail to use new sns topic
+                        cloudtrail_client.update_trail(
+                            Name=existing_cloudtrail,
+                            SnsTopicName=new_sns_topic_arn
+                        )
+                        logger.info("Updated CloudTrail {} to use new SNS Topic: {}".format(existing_cloudtrail, new_sns_topic_arn))
+                        # update variable so Audit stack set uses correct sns topic
+                        cloudtrail_sns_topic = new_sns_topic_arn
+                    else:
+                        raise Exception("Could not find CloudTrailSnsTopicArn output from log stack.")
+                except Exception as update_trail_exception:
+                    raise error_exception("Error updating CloudTrail with new SNS Topic: {}".format(update_trail_exception),
+                                          access_token, DATASET, BUILD_VERSION, lacework_account_name,
+                                          "setup.setup_cloudtrail", lacework_sub_account_name)
+
         except Exception as create_exception:
             raise error_exception("Error creating log account stack {}.".format(create_exception),
                                   access_token, DATASET, BUILD_VERSION, lacework_account_name,
@@ -523,7 +583,6 @@ def setup_cloudtrail(lacework_url, lacework_sub_account_name, region_name,
             logger.info("Audit stack set instance created {}".format(audit_stack_instance_response))
             # Enable SNS on CloudTrail for Control Tower 4.0 compatibility
             # logger.info("Enabling SNS on CloudTrail for Control Tower 4.0 compatibility")
-            # enable_cloudtrail_sns(existing_cloudtrail, audit_account_id, region_name)
             add_lw_cloud_account_for_ct(log_stack_set_name, lacework_url, lacework_sub_account_name,
                                         access_token, external_id,
                                         cross_account_access_role,

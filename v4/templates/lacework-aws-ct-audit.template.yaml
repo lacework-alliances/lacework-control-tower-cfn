@@ -54,12 +54,12 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Sid: AwsSnsAccess
+          - Sid: AllowCloudTrailSnsSendMessage
             Effect: Allow
-            Principal: '*'
-            Action:
-              - 'sqs:SendMessage'
-            Resource: '*'
+            Principal:
+              Service: "sns.amazonaws.com"
+            Action: "sqs:SendMessage"
+            Resource: !GetAtt LaceworkCWSQueue.Arn
             Condition:
               ArnEquals:
                 'aws:SourceArn': !Ref ExistingTrailTopicArn
@@ -73,7 +73,7 @@ Resources:
               - 'sqs:GetQueueAttributes'
               - 'sqs:GetQueueUrl'
             Resource: !GetAtt LaceworkCWSQueue.Arn
-          - Sid: AllowCTSNSToSendMessage
+          - Sid: AllowConfigSNSToSendMessage
             Effect: Allow
             Principal:
               Service: "sns.amazonaws.com"
