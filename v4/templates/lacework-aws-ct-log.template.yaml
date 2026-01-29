@@ -51,7 +51,7 @@ Parameters:
     Default: ""
 Conditions:
   UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
-  HasCloudTrailSnsTopicArn: !Not [!Equals [!Ref CloudTrailSnsTopicArn, '']]
+  HasCloudTrailSnsTopic: !Not [!Equals [!Ref CloudTrailSnsTopicArn, '']]
 Resources:
   LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
