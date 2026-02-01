@@ -15,10 +15,6 @@ logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
 
 
-def get_account_from_url(lacework_url):
-    return lacework_url.split(".")[0]
-
-
 def setup_initial_access_token(lacework_url, lacework_api_credentials):
     logger.info("lacework.setup_initial_access_token called.")
     secret_client = boto3.client("secretsmanager")
@@ -180,7 +176,7 @@ def add_lw_cloud_account_for_ct(
     role_arn,
     sqs_queue_url,
 ):
-    logger.info("lacework.add_lw_cloud_account_for_ct")
+    logger.info("lacework.add_lw_cloud_account_for_ct called.")
 
     request_payload = """
     {{
@@ -208,10 +204,11 @@ def add_lw_cloud_account_for_ct(
     logger.info("API response code : {}".format(add_response.status_code))
     logger.info("API response : {}".format(add_response.text))
     if add_response.status_code == 201:
+        logger.info(f"Added Lacework CloudTrail integration for {integration_name}")
         return True
     else:
         logger.warning(
-            "API response error adding CloudTrail account {} {}".format(
+            "API response error adding Lacework CloudTrail integration {} {}".format(
                 add_response.status_code, add_response.text
             )
         )
@@ -246,7 +243,7 @@ def add_lw_cloud_account_for_cfg(
     """.format(
         integration_name, external_id, role_arn, aws_account_id
     )
-    logger.info("Generate create account payload : {}".format(request_payload))
+    logger.info("Generate create account payload: {}".format(request_payload))
 
     add_response = send_lacework_api_post_request(
         lacework_url,
@@ -258,10 +255,11 @@ def add_lw_cloud_account_for_cfg(
     logger.info("API response code : {}".format(add_response.status_code))
     logger.info("API response : {}".format(add_response.text))
     if add_response.status_code == 201:
+        logger.info(f"Added Lacework Config integration for {integration_name}")
         return True
     else:
         logger.warning(
-            "API response error adding Config account {} {}".format(
+            "API response error adding Lacework Config integration: {} {}".format(
                 add_response.status_code, add_response.text
             )
         )
@@ -282,7 +280,13 @@ def add_lw_cloud_account_for_cfg(
 
 
 def delete_lw_cloud_account(integration_name, lacework_url, sub_account, access_token):
-    logger.info("lacework.delete_lw_cloud_account")
+    if not access_token:
+        logger.warning(
+            f"access_token is None. Failed to delete Lacework cloud account integration: {integration_name}."
+        )
+        return False
+
+    logger.info("lacework.delete_lw_cloud_account called.")
 
     data_dict = search_lw_cloud_account_by_name(
         integration_name, lacework_url, sub_account, access_token

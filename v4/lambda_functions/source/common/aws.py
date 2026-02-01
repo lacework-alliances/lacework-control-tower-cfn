@@ -34,6 +34,17 @@ def get_account_id_by_name(name):
     return None
 
 
+def get_account_name_by_id(account_id):
+    logger.info(f"aws.get_aws_account_name called. Account ID: {account_id}")
+    org_client = boto3.client("organizations")
+    try:
+        response = org_client.describe_account(AccountId=account_id)
+        return response["Account"]["Name"]
+    except Exception as e:
+        logger.warning(f"Error getting account name for {account_id}: {e}")
+        return None
+
+
 def is_account_valid(acct, orgs):
     logger.info("aws.is_account_valid called.")
     return is_account_active(acct) and is_account_in_orgs(acct, orgs)
@@ -368,32 +379,3 @@ def send_cfn_response(
 
     except Exception as e:
         logger.error("send_cfn_response error {}".format(e))
-
-
-def find_config_bucket(audit_session, region):
-    """
-    Finds the bucket starting with 'aws-controltower-config-logs-' in the Audit account.
-    Requires a boto3 session assumed into the Audit Account.
-
-    Args:
-        audit_session: Boto3 session for the audit account
-        region: AWS region
-
-    Returns:
-        Name of the Config bucket, or raises exception if not found
-    """
-    logger.info("aws.find_config_bucket called.")
-    try:
-        s3 = audit_session.client("s3", region_name=region)
-        response = s3.list_buckets()
-        for bucket in response["Buckets"]:
-            if bucket["Name"].startswith("aws-controltower-config-logs-"):
-                logger.info(f"Found Config Bucket: {bucket['Name']}")
-                return bucket["Name"]
-
-        raise Exception(
-            "Could not find aws-controltower-config-logs bucket in Audit Account."
-        )
-    except Exception as e:
-        logger.error(f"Error finding Config bucket: {str(e)}")
-        raise e

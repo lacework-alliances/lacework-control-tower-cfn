@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Lacework AWS CloudTrail and Config Security Audit Integration (Log Account)
+Description: Lacework AWS CloudTrail and Config Security Audit Integration (Log Archive Account)
 Parameters:
   ResourceNamePrefix:
     Description: >-
@@ -21,15 +21,17 @@ Parameters:
     Type: String
     MinLength: '2'
     MaxLength: '1224'
-  ExistingTrailBucketName:
-    Description: >-
-      Provide the name of the S3 bucket for your existing trail setup.  The
-      bucket must be owned by the current account.
+  CloudTrailS3BucketName:
+    Description: The S3 bucket name for your CloudTrail setup. The bucket must be owned by the current account.
     Default: ''
     Type: String
     MaxLength: '128'
-  KMSKeyIdentifierArn:
-    Description: Provide the ARN of the KMS key for decrypting S3 log files if necessary.
+  CloudTrailSnsTopicArn:
+    Type: String
+    Description: The SNS Topic ARN (if one exists) for your CloudTrail setup. Leave blank to create a new SNS Topic.
+    Default: ""
+  KMSKeyIdArn:
+    Description: The KMS key ARN for decrypting S3 log files if necessary.
     Default: ''
     Type: String
   SqsQueueUrl:
@@ -41,33 +43,21 @@ Parameters:
   SqsQueueArn:
     Type: String
     Description: The SQS Queue Arn.
-  CloudTrailSnsTopicArn:
-    Type: String
-    Description: The ARN of an existing CloudTrail SNS Topic (if one exists). Leave blank to create a new SNS Topic.
-    Default: ""
   AuditAccountId:
     Type: String
     Description: The Account ID of the Audit Account that will subscribe to the CloudTrail SNS Topic.
     Default: ""
-  CreateCloudTrailSnsTopic:
-    Type: String
-    Description: Whether to create a new CloudTrail SNS Topic. Set to 'true' to create a new topic, 'false' to use an existing topic.
-    AllowedValues:
-      - "true"
-      - "false"
-    Default: "true"
+
 Conditions:
-  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdentifierArn, '']]
-  HasExistingCloudTrailSnsTopic: !Not [!Equals [!Ref CloudTrailSnsTopicArn, '']]
-  ShouldCreateSnsTopic: !Equals [!Ref CreateCloudTrailSnsTopic, "true"]
+  UseKMSDecrypt: !Not [!Equals [!Ref KMSKeyIdArn, '']]
+  CloudTrailSnsTopicExists: !Not [!Equals [!Ref CloudTrailSnsTopicArn, '']]
+  CloudTrailSnsTopicNotExists: !Equals [!Ref CloudTrailSnsTopicArn, '']
+
 Resources:
   LaceworkCWSSACrossAccountAccessRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Join
-        - ''
-        - - !Ref ResourceNamePrefix
-          - '-laceworkcwssarole'
+      RoleName: !Sub "${ResourceNamePrefix}-laceworkcwssarole"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -78,6 +68,7 @@ Resources:
             Condition:
               StringEquals:
                 'sts:ExternalId': !Ref ExternalID
+
   LaceworkCWSPolicy:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
@@ -93,20 +84,15 @@ Resources:
               - 'sqs:ReceiveMessage'
             Effect: Allow
             Resource: !Ref SqsQueueArn
-          - Sid: ListLogFiles
-            Action:
-              - 's3:ListBucket'
-            Effect: Allow
-            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
-            Condition:
-              StringLike:
-                's3:prefix':
-                  - '*AWSLogs/'
-          - Sid: ReadLogFiles
+          - Sid: AccessLogFiles
             Action:
               - 's3:Get*'
+              - 's3:ListBucket'
             Effect: Allow
-            Resource: !Join ['',["arn:aws:s3:::", !Ref ExistingTrailBucketName, "/*AWSLogs/*" ]]
+            Resource:
+              - !Sub "arn:aws:s3:::${CloudTrailS3BucketName}/*AWSLogs/*"
+              - 'arn:aws:s3:::aws-controltower-config-logs-*'
+              - 'arn:aws:s3:::aws-controltower-config-logs-*/*'
           - Sid: GetAccountAlias
             Action:
               - 'iam:ListAccountAliases'
@@ -124,27 +110,25 @@ Resources:
               - 'sns:ListTopics'
             Effect: Allow
             Resource: '*'
-          - Sid: AllowReadConfigBucketInAudit
-            Effect: Allow
-            Action:
-              - 's3:GetBucketLocation'
-              - 's3:ListBucket'
-              - 's3:GetObject'
-            Resource:
-              - 'arn:aws:s3:::aws-controltower-config-logs-*'
-              - 'arn:aws:s3:::aws-controltower-config-logs-*/*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+
   CloudTrailSnsTopicPolicy:
     Type: 'AWS::SNS::TopicPolicy'
-    Condition: HasExistingCloudTrailSnsTopic
+    Condition: CloudTrailSnsTopicExists
     Properties:
       Topics:
         - !Ref CloudTrailSnsTopicArn
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Sid: AllowAuditAccountSubscribe
+          - Sid: AllowCloudTrailPublish
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Action: "sns:Publish"
+            Resource: !Ref CloudTrailSnsTopicArn
+          - Sid: AllowAuditAccountToSubscribe
             Effect: Allow
             Principal:
               AWS: !Sub "arn:aws:iam::${AuditAccountId}:root"
@@ -152,29 +136,31 @@ Resources:
               - 'sns:Subscribe'
               - 'sns:Receive'
             Resource: !Ref CloudTrailSnsTopicArn
-  # new sns topic for cloudtrail if needed
+
+  # Create new SNS topic for CloudTrail if no existing one is provided
   LaceworkCloudTrailSnsTopic:
     Type: 'AWS::SNS::Topic'
-    Condition: ShouldCreateSnsTopic
+    Condition: CloudTrailSnsTopicNotExists
     Properties:
       TopicName: !Sub "${ResourceNamePrefix}-lacework-cloudtrail-sns"
       DisplayName: Lacework CloudTrail Notifications
+
   LaceworkCloudTrailSnsTopicPolicy:
     Type: 'AWS::SNS::TopicPolicy'
-    Condition: ShouldCreateSnsTopic
+    Condition: CloudTrailSnsTopicNotExists
     Properties:
       Topics:
         - !Ref LaceworkCloudTrailSnsTopic
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Sid: AllowCloudTrailToPublish
+          - Sid: AllowCloudTrailPublish
             Effect: Allow
             Principal:
               Service: "cloudtrail.amazonaws.com"
             Action: "sns:Publish"
             Resource: !Ref LaceworkCloudTrailSnsTopic
-          - Sid: AllowAuditAccountSubscribe
+          - Sid: AllowAuditAccountToSubscribe
             Effect: Allow
             Principal:
               AWS: !Sub "arn:aws:iam::${AuditAccountId}:root"
@@ -182,6 +168,7 @@ Resources:
               - 'sns:Subscribe'
               - 'sns:Receive'
             Resource: !Ref LaceworkCloudTrailSnsTopic
+
   LaceworkCWSDecryptPolicy:
     Type: 'AWS::IAM::Policy'
     Condition: UseKMSDecrypt
@@ -194,25 +181,23 @@ Resources:
             Action:
               - 'kms:Decrypt'
             Effect: Allow
-            Resource: !Ref KMSKeyIdentifierArn
+            Resource: !Ref KMSKeyIdArn
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
+
 Outputs:
   RoleARN:
     Description: >-
       Cross-account access role ARN to share with Lacework for CloudTrail
       integration
-    Value: !GetAtt
-      - LaceworkCWSSACrossAccountAccessRole
-      - Arn
+    Value: !GetAtt LaceworkCWSSACrossAccountAccessRole.Arn
   SQSQueueURL:
-    Description: SQS queue URL to share with Lacework for CloudTrail Integration
+    Description: SQS Queue URL to share with Lacework for CloudTrail Integration
     Value: !Ref SqsQueueUrl
   CloudTrailSnsTopicArn:
     Description: SNS Topic ARN to share with Lacework for CloudTrail Integration
-    Condition: ShouldCreateSnsTopic
+    Condition: CloudTrailSnsTopicNotExists
     Value: !Ref LaceworkCloudTrailSnsTopic
   TemplateVersion:
     Description: Template version
     Value: '1.1'
-

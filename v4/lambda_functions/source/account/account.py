@@ -36,7 +36,6 @@ from aws import (
 )
 from telemetry import send_lacework_telemetry_event
 from lacework import (
-    get_account_from_url,
     get_access_token,
     add_lw_cloud_account_for_cfg,
     lw_cloud_account_exists_in_orgs,
@@ -137,8 +136,7 @@ def lifecycle_eventbridge_processing(event, token):
 
 def process_ct_lifecycle_event(account_id, account_name, event, access_token):
     region = event["detail"]["awsRegion"]
-    lacework_url = os.environ["lacework_url"]
-    lacework_account_name = get_account_from_url(lacework_url)
+    lacework_account_name = os.environ["lacework_account_name"]
     lacework_sub_account_name = os.environ.get("lacework_sub_account_name")
     send_lacework_telemetry_event(
         DATASET,
@@ -170,7 +168,7 @@ def cfn_stack_set_processing(messages):
     cloud_formation_client = boto3.client("cloudformation")
     sns_client = boto3.client("sns")
     lacework_url = os.environ["lacework_url"]
-    lacework_account_name = get_account_from_url(lacework_url)
+    lacework_account_name = os.environ["lacework_account_name"]
     lacework_sub_account_name = os.environ.get("lacework_sub_account_name")
     lacework_org_sub_account_names = os.environ["lacework_org_sub_account_names"]
     lacework_account_sns = os.environ["lacework_account_sns"]
