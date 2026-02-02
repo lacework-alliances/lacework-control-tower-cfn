@@ -116,6 +116,7 @@ Resources:
   CloudTrailSnsTopicPolicy:
     Type: 'AWS::SNS::TopicPolicy'
     Condition: CloudTrailSnsTopicExists
+    DeletionPolicy: Retain
     Properties:
       Topics:
         - !Ref CloudTrailSnsTopicArn

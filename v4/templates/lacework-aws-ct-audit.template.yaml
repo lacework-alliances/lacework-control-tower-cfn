@@ -82,6 +82,7 @@ Resources:
   ConfigS3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Condition: ConfigS3BucketExists
+    DeletionPolicy: Retain
     Properties:
       Bucket: !Ref ConfigS3BucketName
       PolicyDocument:

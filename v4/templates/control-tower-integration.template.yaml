@@ -505,18 +505,19 @@ Resources:
               - cloudtrail:GetTrail
               - cloudtrail:UpdateTrail
             Resource: !Join ['', ['arn:aws:cloudtrail:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':trail/', !Ref 'ExistingCloudTrail' ]]
-          - Sid: ListAccounts
-            Effect: Allow
-            Action:
-              - organizations:ListAccounts
-            Resource: "*"
-          - Sid: QueryAccounts
+          - Sid: AccessOrganization
             Effect: Allow
             Action:
               - organizations:DescribeAccount
               - organizations:DescribeOrganization
               - organizations:DescribeOrganizationalUnit
+              - organizations:ListAccounts
               - organizations:ListParents
+              - organizations:EnableAWSServiceAccess
+              - organizations:DisableAWSServiceAccess
+              - organizations:ListAWSServiceAccessForOrganization
+              - iam:CreateServiceLinkedRole
+              - iam:GetRole
             Resource: "*"
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
