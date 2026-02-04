@@ -13,43 +13,60 @@ Parameters:
     ConstraintDescription: >-
       Invalid resource name prefix value.  Must match pattern
       ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
-  ExistingTrailTopicArn:
-    Description: Provide the ARN of the SNS topic for your existing trail setup.
+  CloudTrailSnsTopicArn:
+    Description: The SNS topic ARN for your CloudTrail setup.
     Default: ''
     Type: String
   CrossAccountAccessRoleArn:
     Description: The cross account role to use for access. Typically, this is the Log account cross account role.
     Default: ''
     Type: String
+  ConfigS3BucketName:
+    Type: String
+    Description: "The AWS Config S3 bucket name created by Control Tower 4.0 (e.g., aws-controltower-config-logs-12345...)"
+    Default: ''
+
+Conditions:
+  ConfigS3BucketExists: !Not [!Equals [!Ref ConfigS3BucketName, '']]
+
 Resources:
-  LaceworkCWSSubscription:
+  LaceworkCloudTrailSubscription:
     Type: 'AWS::SNS::Subscription'
     Properties:
-      Endpoint: !GetAtt
-        - LaceworkCWSQueue
-        - Arn
+      Endpoint: !GetAtt LaceworkCWSQueue.Arn
       Protocol: sqs
-      TopicArn: !Ref ExistingTrailTopicArn
+      TopicArn: !Ref CloudTrailSnsTopicArn
+
+  LaceworkConfigSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      Endpoint: !GetAtt LaceworkCWSQueue.Arn
+      Protocol: sqs
+      TopicArn: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
+
   LaceworkCWSQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
-      QueueName: !Join ['',[!Ref ResourceNamePrefix, "-laceworkcws" ]]
+      QueueName: !Sub "${ResourceNamePrefix}-laceworkcws"
+
   LaceworkCWSQueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Sid: AwsSnsAccess
+          - Sid: SendMessage
             Effect: Allow
-            Principal: '*'
-            Action:
-              - 'sqs:SendMessage'
-            Resource: '*'
+            Principal:
+              Service: "sns.amazonaws.com"
+            Action: "sqs:SendMessage"
+            Resource: !GetAtt LaceworkCWSQueue.Arn
             Condition:
               ArnEquals:
-                'aws:SourceArn': !Ref ExistingTrailTopicArn
-          - Sid: CrossAccountSqsAccess
+                aws:SourceArn:
+                  - !Ref CloudTrailSnsTopicArn
+                  - !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:aws-controltower-AllConfigNotifications"
+          - Sid: AccessSQSQueue
             Effect: Allow
             Principal:
               AWS: !Ref CrossAccountAccessRoleArn
@@ -61,11 +78,31 @@ Resources:
             Resource: !GetAtt LaceworkCWSQueue.Arn
       Queues:
         - !Ref LaceworkCWSQueue
+
+  ConfigS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: ConfigS3BucketExists
+    DeletionPolicy: Retain
+    Properties:
+      Bucket: !Ref ConfigS3BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccessLogFiles
+            Effect: Allow
+            Principal:
+              AWS: !Ref CrossAccountAccessRoleArn
+            Action:
+              - 's3:Get*'
+              - 's3:ListBucket'
+            Resource:
+              - !Sub "arn:aws:s3:::${ConfigS3BucketName}"
+              - !Sub "arn:aws:s3:::${ConfigS3BucketName}/*"
+
 Outputs:
   SQSQueueURL:
-    Description: SQS queue URL to share with Lacework for CloudTrail Integration
+    Description: SQS Queue URL to share with Lacework for CloudTrail Integration
     Value: !Ref LaceworkCWSQueue
   TemplateVersion:
     Description: Template version
     Value: '1.1'
-

@@ -1,9 +1,32 @@
-# Lacework AWS Control Tower Customization
+# Lacework FortiCNAPP AWS Control Tower Integration
+
 
 ![Fortinet-logo-rgb-black-red](https://github.com/user-attachments/assets/cafe1dad-4968-4385-a9c1-f1636b8ab697)
 
 ## Overview
 With Lacework and AWS Control Tower, enrolling a new AWS account now means security best practices and monitoring are automatically applied consistently across your organization. Account administrators can automatically add Lacework's security auditing and monitoring to AWS accounts seamlessly. All the required Lacework and AWS account configurations that allow access to AWS configuration and CloudTrail logs are managed for you by Lacework’s AWS Control Tower integration.
+
+## How To Run
+
+### For Control Tower Landing Zone 4.x:
+
+CloudFormation template URL:
+
+`https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/v4/templates/control-tower-integration.template.yaml`
+
+Or click the button below to open the template in the AWS console:
+
+[![Launch Stack](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/v4/templates/control-tower-integration.template.yaml)
+
+### For Control Tower Landing Zone 3.x:
+
+CloudFormation template URL:
+
+`https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yaml`
+
+Or click the button below to open the template in the AWS console:
+
+[![Launch Stack](https://user-images.githubusercontent.com/6440106/153987820-e1f32423-1e69-416d-8bca-2ee3a1e85df1.png)](https://console.aws.amazon.com/cloudformation/home?#/stacks/create/review?templateURL=https://lacework-alliances.s3.us-west-2.amazonaws.com/lacework-control-tower-cfn/templates/control-tower-integration.template.yaml)
 
 ## How It Works
 The Lacework AWS Control Tower integration audits and monitors AWS accounts in your [AWS Control Tower Landing Zone](https://aws.amazon.com/controltower/features/#Landing_Zone). Your Landing Zone is your multi-account environment for which you can apply your governance, auditing and monitoring. On initial setup, the Lacework AWS Control Tower integration creates a new cross-account role in the Log Archive account and a new SQS queue is set up in the Audit account. The SQS queue allows Lacework to receive notifications of new audit logs in S3 from the centralized CloudTrail that collects activity from all accounts. Lacework processes these logs for behavior analysis for all AWS accounts.
@@ -81,7 +104,8 @@ If using Lacework and AWS Organization Support, ensure that you are generating a
     * For **Capability Type**, the recommendation is to use **CloudTrail+Config** for the best capabilities.
     * Choose whether you want to **Monitor Existing Accounts**. This will set up monitoring of ACTIVE existing AWS accounts.
     * Enter the name of your **Existing AWS Control Tower CloudTrail Name**.
-    * If your CloudTrail S3 logs are encrypted, specify the **KMS Key Identifier ARN**. Ensure that KMS Key Policy is updated to allow access to the Log account cross-account role used by Lacework. Add the following to the Key Policy.
+    * If your CloudTrail S3 logs are encrypted, specify the **KMS Key Identifier ARN**. Ensure that KMS Key Policy is updated to allow access to the Log account cross-account role used by Lacework. Add the following to the Key Policy:
+
    ```
    "Sid": "Allow Lacework to decrypt logs",
    "Effect": "Allow",
@@ -95,17 +119,17 @@ If using Lacework and AWS Organization Support, ensure that you are generating a
    ],
    "Resource": "*"
    ```
-   ![control_tower_kms_key_policy.png](https://docs.lacework.com/assets/images/control_tower_kms_key_policy-ba8f68668bb3cadc57c74364a5a657d3.png)
+
     * Provide the **Audit Account ID** and **Log Account ID**.
-    * Update the Control Tower **Log Account Name** and **Audit Account Name** if necessary. The integration will attempt to verify the account IDs and account names, and will fail if there is a mismatch. 
+    * Update the Control Tower **Log Account Name** and **Audit Account Name** if necessary. The integration will attempt to verify the account IDs and account names, and will fail if there is a mismatch.
     * If using AWS organizations to Lacework sub-account mapping, specify a comma-separated lists of organization names in the **Organization Configuration** section in the **AWS Organizations to Lacework Sub-Account Names** field. AWS accounts will be added to the appropriate Lacework sub-accounts based on this AWS organization-to-Lacework sub-account name mapping. AWS organization names and Lacework sub-account names must match. AWS accounts not in the specified organizations will not be added to Lacework.
-      
+
    ![organization_configuration](https://user-images.githubusercontent.com/6440106/154780412-7543afb2-f84e-42e4-b31d-0b0cc2d6c55a.png)
     * If using a single Lacework sub-account for all AWS accounts, specify a Lacework sub-account for which all AWS accounts will be added. This is specified in the **Single Sub-Account Configuration** section in the **Lacework Sub-Account Name** field.
-      
+
    ![sub_account_configuration](https://user-images.githubusercontent.com/6440106/154780411-50b270b5-4246-4e12-acb1-b1d4997b5671.png)
-4. Click **Next** through to your stack **Review**.
-5. Accept the AWS CloudFormation terms and click **Create stack**.
+3. Click **Next** through to your stack **Review**.
+4. Accept the AWS CloudFormation terms and click **Create stack**.
 
 ### 4. CloudFormation Progress
 

@@ -24,7 +24,7 @@ import os
 
 from lacework import send_lacework_api_access_token_request
 
-LOGLEVEL = os.environ.get('LOGLEVEL', logging.INFO)
+LOGLEVEL = os.environ.get("LOGLEVEL", logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(LOGLEVEL)
 
@@ -45,51 +45,67 @@ def auth_sns_processing():
 
 def refresh_access_token():
     logger.info("auth.refresh_access_token called.")
-    lacework_api_credentials = os.environ['lacework_api_credentials']
-    lacework_url = os.environ['lacework_url']
+    lacework_api_credentials = os.environ["lacework_api_credentials"]
+    lacework_url = os.environ["lacework_url"]
 
-    secret_client = boto3.client('secretsmanager')
+    secret_client = boto3.client("secretsmanager")
     try:
         secret_response = secret_client.get_secret_value(
             SecretId=lacework_api_credentials
         )
-        if 'SecretString' not in secret_response:
-            logger.error("SecretString not found in {}".format(lacework_api_credentials))
+        if "SecretString" not in secret_response:
+            logger.error(
+                "SecretString not found in {}".format(lacework_api_credentials)
+            )
             return None
 
-        secret_string_dict = json.loads(secret_response['SecretString'])
-        access_key_id = secret_string_dict['AccessKeyID']
-        secret_key = secret_string_dict['SecretKey']
-        token_expiry = secret_string_dict['TokenExpiry']  # yyyy-MM-ddTHH:mm:ss.SSSZ
+        secret_string_dict = json.loads(secret_response["SecretString"])
+        access_key_id = secret_string_dict["AccessKeyID"]
+        secret_key = secret_string_dict["SecretKey"]
+        token_expiry = secret_string_dict["TokenExpiry"]  # yyyy-MM-ddTHH:mm:ss.SSSZ
         logger.info("Token expiration is {}".format(token_expiry))
         expiration = datetime.fromisoformat(token_expiry.replace("Z", "+00:00"))
 
         logger.info("Formatted ISO token expiration is {}".format(expiration))
         early_refresh_time = expiration - timedelta(hours=6)
         now_time = datetime.now(timezone.utc)
-        logger.info("Now is {} and early refresh time is {}".format(now_time, early_refresh_time))
+        logger.info(
+            "Now is {} and early refresh time is {}".format(
+                now_time, early_refresh_time
+            )
+        )
         if now_time < early_refresh_time:
             logger.info("Access token is still valid {}".format(expiration))
             return None
 
-        logger.info("Access token will expire soon. Refreshing... {}".format(token_expiry))
+        logger.info(
+            "Access token will expire soon. Refreshing... {}".format(token_expiry)
+        )
 
-        response = send_lacework_api_access_token_request(lacework_url, access_key_id, secret_key)
-        logger.info('API response code : {}'.format(response.status_code))
-        logger.debug('API response : {}'.format(response.text))
+        response = send_lacework_api_access_token_request(
+            lacework_url, access_key_id, secret_key
+        )
+        logger.info("API response code : {}".format(response.status_code))
+        logger.debug("API response : {}".format(response.text))
         if response.status_code == 201:
             payload_response = response.json()
-            expires_at = payload_response['expiresAt']
-            token = payload_response['token']
-            secret_string_dict['AccessToken'] = token
-            secret_string_dict['TokenExpiry'] = expires_at
+            expires_at = payload_response["expiresAt"]
+            token = payload_response["token"]
+            secret_string_dict["AccessToken"] = token
+            secret_string_dict["TokenExpiry"] = expires_at
             logger.info("New token expiration is {}".format(expires_at))
-            secret_client.update_secret(SecretId=lacework_api_credentials, SecretString=json.dumps(secret_string_dict))
+            secret_client.update_secret(
+                SecretId=lacework_api_credentials,
+                SecretString=json.dumps(secret_string_dict),
+            )
             return token
         else:
-            logger.error("Generate access key failure {} {}".format(response.status_code, response.text))
+            logger.error(
+                "Generate access key failure {} {}".format(
+                    response.status_code, response.text
+                )
+            )
             return None
     except Exception as e:
         logger.error("Error setting up initial access token {}".format(e))
         return None
-
