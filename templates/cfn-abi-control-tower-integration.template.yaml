@@ -91,14 +91,14 @@ Parameters:
     MinLength: '1'
     AllowedPattern: '^[-a-zA-Z0-9_]*$'
     ConstraintDescription: "The Lacework API Access Key ID contains alphanumeric characters and symbols only."
-    Description: "Enter the Lacework API Secret Key ID. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens."
+    Description: "Enter the Lacework API Secret Key ID. See https://docs.fortinet.com/document/forticnapp/latest/administration-guide/155000."
   LaceworkSecretKey:
     Type: String
     NoEcho: true
     MinLength: '1'
     AllowedPattern: '^[a-zA-Z0-9_]*$'
     ConstraintDescription: "The Lacework API Secret Key contains alphanumeric characters and symbols only."
-    Description: "Enter the Lacework API Secret Key. See https://support.lacework.com/hc/en-us/articles/360011403853-Generate-API-Access-Keys-and-Tokens."
+    Description: "Enter the Lacework API Secret Key. See https://docs.fortinet.com/document/forticnapp/latest/administration-guide/155000."
   CapabilityType:
     AllowedValues:
       - 'CloudTrail+Config'
