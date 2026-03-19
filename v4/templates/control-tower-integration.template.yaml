@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v4.0.0 supports Control Tower Landing Zone 4.0 and AWS Built-in."
+Description: "Lacework AWS Control Tower Integration: Add the Lacework Cloud Security Platform for cloud-native threat detection, compliance, behavioral anomaly detection, and automated AWS security monitoring. v4.0.1 supports Control Tower Landing Zone 4.0 and AWS Built-in."
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -272,9 +272,9 @@ Resources:
       SourceBucket: !Ref 'S3BucketName'
       Prefix: !Ref 'S3KeyPrefix'
       Objects:
-        - '/lambda/LaceworkCTAuth4.0.0.zip'
-        - '/lambda/LaceworkCTSetup4.0.0.zip'
-        - '/lambda/LaceworkCTAccount4.0.0.zip'
+        - '/lambda/LaceworkCTAuth4.0.1.zip'
+        - '/lambda/LaceworkCTSetup4.0.1.zip'
+        - '/lambda/LaceworkCTAccount4.0.1.zip'
 
   CopyZipsRole:
     Type: AWS::IAM::Role
@@ -377,7 +377,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTSetup4.0.0.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTSetup4.0.1.zip'
       Handler: setup.lambda_handler
       Runtime: python3.11
       Timeout: 900
@@ -630,7 +630,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTAccount4.0.0.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTAccount4.0.1.zip'
       Handler: account.lambda_handler
       Runtime: python3.11
       Timeout: 900
@@ -678,7 +678,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaZipsBucket
-        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTAuth4.0.0.zip'
+        S3Key: !Sub '${S3KeyPrefix}/lambda/LaceworkCTAuth4.0.1.zip'
       Handler: auth.lambda_handler
       Runtime: python3.11
       Timeout: 120
