@@ -1261,6 +1261,12 @@ Resources:
             Effect: Allow
             Resource:
               - '*'
+          - Sid: KEYSPACES
+            Action:
+              - 'cassandra:Select'
+            Effect: Allow
+            Resource:
+              - '*'
       Roles:
         - !Ref LaceworkCWSSACrossAccountAccessRole
 

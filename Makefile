@@ -7,7 +7,7 @@ DATASET := lacework-alliances-prod
 V4 ?= false
 
 # Update VERSION with each v3 release
-VERSION ?= 3.3.2
+VERSION ?= 3.3.3
 
 PROFILE ?= alliances-admin
 REGION ?= us-west-2
@@ -19,7 +19,7 @@ LAMBDA_PACKAGES := $(wildcard lambda_functions/packages/*/*.zip)
 
 ifeq ($(V4), true)
 # Update VERSION with each v4 release
-VERSION := 4.0.0
+VERSION := 4.0.1
 KEY_PREFIX := lacework-control-tower-cfn/v4
 BASE := $(shell pwd)/v4
 TEMPLATES_DIR := v4/templates
