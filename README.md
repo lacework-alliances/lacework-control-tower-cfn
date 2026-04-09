@@ -1,3 +1,13 @@
+# This repo is deprecated. Please use FortiCNAPP console to access the FortiCNAPP AWS Control Tower CloudTrail + Configuration integration CloudFormation template:
+
+1. Log in to the FortiCNAPP console.
+2. Go to Settings > Integrations > Cloud accounts.
+3. Click + Add New.
+4. Click Amazon Web Services and select CloudFormation.
+Click Next.
+Select CloudTrail+Configuration (Control Tower) and click Run CloudFormation Template. If you are already logged in to your AWS account, this redirects you to the Create stack page. The template populates the Amazon S3 template URL for you.
+
+
 # Lacework FortiCNAPP AWS Control Tower Integration
 
 
